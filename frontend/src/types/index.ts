@@ -1,8 +1,20 @@
 // Message types
+export interface ChatReference {
+  id: string;
+  document_name: string;
+  similarity?: number;
+  content?: string;
+  index: number;
+}
+
 export interface Message {
+  id?: string;
   role: 'user' | 'assistant';
   content: string;
   created_at: string;
+  streaming?: boolean;
+  error?: boolean;
+  references?: ChatReference[];
 }
 
 // Document types
