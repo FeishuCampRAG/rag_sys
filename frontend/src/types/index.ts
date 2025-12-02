@@ -17,6 +17,15 @@ export interface Message {
   references?: ChatReference[];
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  summary: string;
+  created_at: string;
+  updated_at: string;
+  messages?: Message[];
+}
+
 // Document types
 export interface Document {
   id: string;
@@ -75,6 +84,20 @@ export interface ChatState {
   loadHistory: () => Promise<void>;
   sendMessage: (content: string, onRagEvent?: (event: string, data: any) => void) => Promise<void>;
   clearHistory: () => Promise<void>;
+}
+
+export interface ConversationState {
+  conversations: Conversation[];
+  activeId: string | null;
+  init: () => Promise<void>;
+  ensureActiveConversation: () => Promise<string>;
+  fetchConversations: () => Promise<Conversation[]>;
+  createConversation: () => Promise<string>;
+  selectConversation: (id: string) => void;
+  getConversationMessages: (id: string) => Promise<Message[]>;
+  updateMessages: (id: string, messages: Message[]) => void;
+  updateSummary: (id: string, summary: string) => void;
+  deleteConversation: (id: string) => Promise<void>;
 }
 
 export interface DocumentState {

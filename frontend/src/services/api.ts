@@ -1,4 +1,4 @@
-import { ApiResponse, Document, DocumentChunk, Message } from '../types';
+import { ApiResponse, Document, DocumentChunk, Message, Conversation } from '../types';
 
 const API_BASE = '/api';
 
@@ -37,7 +37,7 @@ export const api = {
   },
 
   // Chat
-  sendMessage(message: string, onEvent: (event: string, data: any) => void): Promise<void> {
+  sendMessage(message: string, conversationId: string, onEvent: (event: string, data: any) => void): Promise<void> {
     return new Promise((resolve, reject) => {
       fetch(`${API_BASE}/chat`, {
         method: 'POST',
@@ -45,7 +45,7 @@ export const api = {
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream'
         },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, conversationId })
       }).then(response => {
         const reader = response.body?.getReader();
         if (!reader) {
@@ -90,15 +90,30 @@ export const api = {
     });
   },
 
-  async getChatHistory(): Promise<ApiResponse<Message[]>> {
-    const response = await fetch(`${API_BASE}/chat/history`);
+  async getChatHistory(conversationId: string): Promise<ApiResponse<Message[]>> {
+    const response = await fetch(`${API_BASE}/chat/history?conversationId=${encodeURIComponent(conversationId)}`);
     return response.json();
   },
 
-  async clearChatHistory(): Promise<ApiResponse> {
-    const response = await fetch(`${API_BASE}/chat/history`, {
+  async clearChatHistory(conversationId: string): Promise<ApiResponse> {
+    const response = await fetch(`${API_BASE}/chat/history?conversationId=${encodeURIComponent(conversationId)}`, {
       method: 'DELETE'
     });
+    return response.json();
+  },
+
+  async getConversations(): Promise<ApiResponse<Conversation[]>> {
+    const response = await fetch(`${API_BASE}/chat/conversations`);
+    return response.json();
+  },
+
+  async createConversation(): Promise<ApiResponse<Conversation>> {
+    const response = await fetch(`${API_BASE}/chat/conversations`, { method: 'POST' });
+    return response.json();
+  },
+
+  async deleteConversation(id: string): Promise<ApiResponse> {
+    const response = await fetch(`${API_BASE}/chat/conversations/${id}`, { method: 'DELETE' });
     return response.json();
   }
 };
