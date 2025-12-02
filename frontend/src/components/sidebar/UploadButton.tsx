@@ -10,11 +10,14 @@ export default function UploadButton() {
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    for (const file of Array.from(files)) {
       await uploadDocument(file);
-      e.target.value = '';
     }
+
+    e.target.value = '';
   };
 
   return (
@@ -45,6 +48,7 @@ export default function UploadButton() {
         ref={fileInputRef}
         type="file"
         accept=".pdf,.txt,.md"
+        multiple
         onChange={handleFileChange}
         className="hidden"
       />
