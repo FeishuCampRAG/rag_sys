@@ -21,7 +21,7 @@ export default function InputArea() {
     });
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e as any);
@@ -29,21 +29,27 @@ export default function InputArea() {
   };
 
   return (
-    <div className="border-t border-gray-200 p-4">
-      <form onSubmit={handleSubmit} className="flex gap-3">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="输入问题，探索知识库..."
-          disabled={isLoading}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-        />
+    <div className="border-t border-gray-100 bg-white/90 backdrop-blur-sm p-4">
+      <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+        <div className="flex-1">
+          <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+            <span>输入问题，按 Enter 发送 · Shift+Enter 换行</span>
+            {isLoading && <span className="text-blue-500 font-medium">AI 正在思考...</span>}
+          </div>
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="例如：总结最新上传的报告，并标注出处"
+            disabled={isLoading}
+            rows={2}
+            className="w-full resize-none px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+          />
+        </div>
         <button
           type="submit"
           disabled={!input.trim() || isLoading}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          className="px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm"
         >
           {isLoading ? (
             <>
@@ -51,10 +57,15 @@ export default function InputArea() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              处理中
+              生成中
             </>
           ) : (
-            '发送'
+            <>
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+              发送
+            </>
           )}
         </button>
       </form>

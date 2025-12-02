@@ -5,11 +5,13 @@ import MessageItem from './MessageItem';
 export default function MessageList() {
   const messages = useChatStore(state => state.messages);
   const containerRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
+    if (!containerRef.current) return;
+    requestAnimationFrame(() => {
+      endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    });
   }, [messages]);
 
   if (messages.length === 0) {
@@ -26,10 +28,11 @@ export default function MessageList() {
   }
 
   return (
-    <div ref={containerRef} className="p-4 space-y-4">
-      {messages.map((msg, index) => (
-        <MessageItem key={index} message={msg} />
+    <div ref={containerRef} className="h-full overflow-y-auto p-4 space-y-4 bg-white">
+      {messages.map((msg) => (
+        <MessageItem key={msg.id || msg.created_at} message={msg} />
       ))}
+      <div ref={endRef} />
     </div>
   );
 }
