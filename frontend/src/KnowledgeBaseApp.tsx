@@ -14,17 +14,19 @@ export default function KnowledgeBaseApp() {
   }, [fetchDocuments]);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="flex h-screen flex-col bg-gray-50">
       <Header variant="knowledge" />
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto py-6 px-6">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
+        <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-gray-800">知识库管理</h2>
-                <p className="text-sm text-gray-500">上传文档、查看状态与维护知识库</p>
+                <p className="text-sm text-gray-500">上传文档、查看状态并维护知识库资源</p>
               </div>
-              <UploadButton />
+              <div className="sm:w-auto">
+                <UploadButton />
+              </div>
             </div>
 
             <UploadArea />

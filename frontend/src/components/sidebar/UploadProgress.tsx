@@ -34,7 +34,7 @@ export default function UploadProgress() {
 
   const getCurrentIndex = () => {
     if (uploading) return 0;
-    if (status === 'processing') return 2; // 解析/切分/向量化阶段
+    if (status === 'processing') return 3; // 解析/切分/向量化阶段
     return 4; // ready 或 error 视为最终阶段
   };
 
@@ -47,19 +47,14 @@ export default function UploadProgress() {
   };
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="mt-4 space-y-2 rounded-lg bg-gray-50 p-3">
       <div className="text-xs text-gray-500">
         {activeDoc
           ? `当前文档：${activeDoc.original_name}`
           : '正在上传文档...'}
       </div>
       {steps.map(({ index, step, title }) => (
-        <StepCard
-          key={step}
-          step={step}
-          title={title}
-          status={getStepStatus(index)}
-        >
+        <StepCard key={step} step={step} title={title} status={getStepStatus(index)}>
           {index === 0 && uploading && (
             <div className="mt-1 text-xs text-blue-600">
               上传中...
@@ -81,4 +76,3 @@ export default function UploadProgress() {
     </div>
   );
 }
-
