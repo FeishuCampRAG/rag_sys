@@ -6,6 +6,14 @@ export interface Config {
   port: number;
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  summary: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Document {
   id: string;
   filename: string;
@@ -26,8 +34,9 @@ export interface Chunk {
   char_count?: number;
 }
 
-export interface ChatHistory {
-  id: number;
+export interface ChatMessageRecord {
+  id: string;
+  conversation_id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   created_at: string;
@@ -97,6 +106,7 @@ export interface ChatTokenEvent {
 
 export interface ChatDoneEvent {
   fullResponse: string;
+  conversationId?: string;
 }
 
 export interface ChatErrorEvent {

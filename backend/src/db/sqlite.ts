@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { Document, Chunk, ChatHistory } from '../types/index.js';
+import type { Document, Chunk, Conversation, ChatMessageRecord } from '../types/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, '../../data/rag.db');
@@ -48,11 +48,21 @@ function initTables(): void {
       FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
     );
 
-    CREATE TABLE IF NOT EXISTS chat_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+    CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
       role TEXT NOT NULL,
       content TEXT NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
     );
   `);
 }
@@ -63,7 +73,6 @@ export function resetDb(): void {
   db.exec(`
     DELETE FROM chunks;
     DELETE FROM documents;
-    DELETE FROM chat_history;
   `);
 }
 
@@ -124,24 +133,65 @@ export const dbHelpers = {
     return db.prepare('DELETE FROM chunks WHERE document_id = ?').run(documentId);
   },
 
-  // Chat history operations
-  insertChatMessage: (role: string, content: string): Database.RunResult => {
+  // Conversation operations
+  createConversation: (conv: Conversation): Database.RunResult => {
     const db = getDb();
-    return db.prepare('INSERT INTO chat_history (role, content) VALUES (?, ?)').run(role, content);
+    return db.prepare(`
+      INSERT INTO conversations (id, title, summary, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(conv.id, conv.title, conv.summary, conv.created_at, conv.updated_at);
   },
 
-  getChatHistory: (): ChatHistory[] => {
+  getConversation: (id: string): Conversation | undefined => {
     const db = getDb();
-    return db.prepare('SELECT * FROM chat_history ORDER BY id').all() as ChatHistory[];
+    return db.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as Conversation | undefined;
   },
 
-  getRecentChatHistory: (limit: number = 10): ChatHistory[] => {
+  getAllConversations: (): Conversation[] => {
     const db = getDb();
-    return db.prepare('SELECT role, content FROM chat_history ORDER BY id DESC LIMIT ?').all(limit) as ChatHistory[];
+    return db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC').all() as Conversation[];
   },
 
-  clearChatHistory: (): Database.RunResult => {
+  updateConversationSummary: (id: string, summary: string): Database.RunResult => {
     const db = getDb();
-    return db.prepare('DELETE FROM chat_history').run();
+    return db.prepare('UPDATE conversations SET summary = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(summary, id);
+  },
+
+  touchConversation: (id: string): Database.RunResult => {
+    const db = getDb();
+    return db.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(id);
+  },
+
+  deleteConversation: (id: string): Database.RunResult => {
+    const db = getDb();
+    return db.prepare('DELETE FROM conversations WHERE id = ?').run(id);
+  },
+
+  // Message operations
+  insertMessage: (msg: ChatMessageRecord): Database.RunResult => {
+    const db = getDb();
+    return db.prepare(`
+      INSERT INTO messages (id, conversation_id, role, content, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(msg.id, msg.conversation_id, msg.role, msg.content, msg.created_at);
+  },
+
+  getMessagesByConversationId: (conversationId: string): ChatMessageRecord[] => {
+    const db = getDb();
+    return db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC')
+      .all(conversationId) as ChatMessageRecord[];
+  },
+
+  getRecentMessagesByConversationId: (conversationId: string, limit: number = 10): Array<Pick<ChatMessageRecord, 'role' | 'content'>> => {
+    const db = getDb();
+    return db.prepare('SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?')
+      .all(conversationId, limit) as Array<Pick<ChatMessageRecord, 'role' | 'content'>>;
+  },
+
+  deleteMessagesByConversationId: (conversationId: string): Database.RunResult => {
+    const db = getDb();
+    return db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
   }
 };
