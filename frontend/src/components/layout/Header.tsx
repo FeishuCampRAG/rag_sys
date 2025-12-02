@@ -13,26 +13,35 @@ export default function Header({ variant = 'chat' }: HeaderProps) {
     }
   };
 
+  const subtitle = variant === 'knowledge' ? '知识库管理端' : '知识库演示系统';
+  const canNavigateHome = variant === 'knowledge';
+
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-      <div className="flex items-center gap-2 cursor-pointer" onClick={goHome}>
+    <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6">
+      <button
+        type="button"
+        onClick={goHome}
+        className={`group flex items-center gap-2 rounded-md px-1 py-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+          canNavigateHome ? 'cursor-pointer hover:bg-gray-100' : 'cursor-default'
+        }`}
+        disabled={!canNavigateHome}
+        aria-label="返回首页"
+      >
         <span className="text-xl font-bold text-blue-600">RAG</span>
-        <span className="text-gray-600">
-          {variant === 'knowledge' ? '知识库管理窗口' : '知识库演示系统'}
-        </span>
-      </div>
+        <span className="hidden text-sm text-gray-600 sm:inline">{subtitle}</span>
+      </button>
 
       {variant === 'chat' ? (
         <button
           onClick={openKnowledgeBase}
-          className="h-9 px-4 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-500 transition-colors shadow-sm"
+          className="h-9 rounded-md bg-blue-600 px-4 text-sm text-white shadow-sm transition-colors hover:bg-blue-500"
         >
           知识库管理
         </button>
       ) : (
         <button
           onClick={goHome}
-          className="h-9 px-4 text-sm rounded-md border border-gray-200 text-gray-700 hover:border-blue-200 hover:text-blue-600 transition-colors"
+          className="h-9 rounded-md border border-gray-200 px-4 text-sm text-gray-700 transition-colors hover:border-blue-200 hover:text-blue-600"
         >
           返回对话窗口
         </button>
