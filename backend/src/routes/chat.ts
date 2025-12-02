@@ -14,7 +14,7 @@ const summarize = (text: string): string => {
   return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean;
 };
 
-const ensureConversation = (conversationId: string | undefined, firstMessage?: string): Conversation => {
+const ensureConversation = (conversationId: string, firstMessage?: string): Conversation => {
   const existing = conversationId ? dbHelpers.getConversation(conversationId) : undefined;
   if (existing) return existing;
 
@@ -181,6 +181,9 @@ router.post('/conversations', (req: Request, res: Response) => {
 
 router.delete('/conversations/:id', (req: Request, res: Response) => {
   const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({ success: false, error: 'Conversation ID is required' } as ApiResponse);
+  }
   dbHelpers.deleteConversation(id);
   res.json({ success: true } as ApiResponse);
 });
