@@ -12,6 +12,7 @@ export interface Conversation {
   summary: string;
   created_at: string;
   updated_at: string;
+  message_count?: number;
 }
 
 export interface Document {
@@ -40,6 +41,29 @@ export interface ChatMessageRecord {
   role: 'user' | 'assistant' | 'system';
   content: string;
   created_at: string;
+}
+
+export interface ChatReference {
+  id: string;
+  index: number;
+  document_name: string;
+  content?: string;
+  similarity?: number;
+  chunk_id?: string;
+}
+
+export interface MessageReferenceRecord {
+  id: string;
+  message_id: string;
+  ref_index: number;
+  chunk_id?: string;
+  document_name: string;
+  content?: string;
+  similarity?: number;
+}
+
+export interface ChatMessageWithReferences extends ChatMessageRecord {
+  references?: ChatReference[];
 }
 
 export interface VectorData {

@@ -29,7 +29,7 @@ export default function ConversationSidebar({ className = '', style }: Conversat
   return (
     <div
       style={style}
-      className={`flex w-full flex-col border-b border-gray-200 bg-white lg:h-full lg:w-72 lg:min-w-[260px] lg:border-b-0 lg:border-r lg:shadow-sm ${className}`.trim()}
+      className={`flex w-full flex-1 min-h-0 flex-col border-b border-gray-200 bg-white lg:h-full lg:w-72 lg:min-w-[260px] lg:flex-none lg:border-b-0 lg:border-r lg:shadow-sm ${className}`.trim()}
     >
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <div>
@@ -50,7 +50,9 @@ export default function ConversationSidebar({ className = '', style }: Conversat
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
         {conversations.map(conv => {
           const isActive = conv.id === activeId;
-          const messageCount = conv.messages?.length ?? 0;
+          const messageCount = conv.messages
+            ? conv.messages.length
+            : (typeof conv.message_count === 'number' ? conv.message_count : 0);
           return (
             <div
               key={conv.id}
