@@ -22,6 +22,7 @@ export default function ChatPanel({ className = '', style }: ChatPanelProps) {
   }, [initConversations]);
 
   useEffect(() => {
+    if (!activeConversationId) return;
     loadHistory();
   }, [activeConversationId, loadHistory]);
 

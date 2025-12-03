@@ -23,6 +23,7 @@ export default function ConversationSidebar({ className = '', style }: Conversat
   }, [init]);
 
   useEffect(() => {
+    if (!activeId) return;
     loadHistory();
   }, [activeId, loadHistory]);
 

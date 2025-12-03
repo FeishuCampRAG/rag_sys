@@ -18,15 +18,24 @@ const fallbackConversation = (): Conversation => {
 export const useConversationStore = create<ConversationState>((set, get) => ({
   conversations: [],
   activeId: null,
+  initialized: false,
+  initializing: false,
 
   init: async () => {
-    const list = await get().fetchConversations();
-    if (list.length === 0) {
-      const id = await get().createConversation();
-      set({ activeId: id });
-      return;
+    if (get().initialized || get().initializing) return;
+    set({ initializing: true });
+    try {
+      const list = await get().fetchConversations();
+      if (list.length === 0) {
+        const id = await get().createConversation();
+        set({ activeId: id });
+      } else {
+        set(state => ({ ...state, activeId: state.activeId || list[0]?.id || null }));
+      }
+      set({ initialized: true });
+    } finally {
+      set({ initializing: false });
     }
-    set(state => ({ ...state, activeId: state.activeId || list[0]?.id || null }));
   },
 
   fetchConversations: async () => {

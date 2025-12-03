@@ -90,6 +90,8 @@ export interface ChatState {
 export interface ConversationState {
   conversations: Conversation[];
   activeId: string | null;
+  initialized: boolean;
+  initializing: boolean;
   init: () => Promise<void>;
   ensureActiveConversation: () => Promise<string>;
   fetchConversations: () => Promise<Conversation[]>;
