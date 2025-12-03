@@ -4,7 +4,15 @@ import { dbHelpers } from '../db/sqlite.js';
 import { getEmbedding } from '../services/embedding.js';
 import { searchVectors } from '../services/vectorStore.js';
 import { streamChat, buildPrompt } from '../services/llm.js';
-import type { ApiResponse, ChatStepEvent, ChatTokenEvent, ChatDoneEvent, ChatErrorEvent, Conversation } from '../types/index.js';
+import type {
+  ApiResponse,
+  ChatStepEvent,
+  ChatTokenEvent,
+  ChatDoneEvent,
+  ChatErrorEvent,
+  Conversation,
+  ChatReference
+} from '../types/index.js';
 
 const router = Router();
 
@@ -26,7 +34,8 @@ const ensureConversation = (conversationId: string, firstMessage?: string): Conv
     title: '对话',
     summary,
     created_at: now,
-    updated_at: now
+    updated_at: now,
+    message_count: 0
   };
   dbHelpers.createConversation(conversation);
   return conversation;
@@ -52,6 +61,7 @@ router.post('/', async (req: Request, res: Response) => {
 
   try {
     const conversation = ensureConversation(conversationId, message);
+    let retrievalReferences: ChatReference[] = [];
 
     // Save user message
     dbHelpers.insertMessage({
@@ -81,14 +91,22 @@ router.post('/', async (req: Request, res: Response) => {
     // Step 2: Retrieval
     sendEvent('step', { step: 'retrieval', status: 'processing' } as ChatStepEvent);
     const chunks = searchVectors(queryEmbedding, 3, 0.5);
+    retrievalReferences = chunks.map((chunk, index) => ({
+      id: chunk.id || randomUUID(),
+      chunk_id: chunk.id,
+      index: index + 1,
+      document_name: chunk.document_name,
+      content: chunk.content,
+      similarity: Math.round(chunk.similarity * 100) / 100
+    }));
     sendEvent('step', {
       step: 'retrieval',
       status: 'done',
-      chunks: chunks.map(c => ({
-        id: c.id,
-        content: c.content,
-        document_name: c.document_name,
-        similarity: Math.round(c.similarity * 100) / 100
+      chunks: retrievalReferences.map(ref => ({
+        id: ref.chunk_id ?? ref.id,
+        content: ref.content,
+        document_name: ref.document_name,
+        similarity: ref.similarity
       }))
     } as ChatStepEvent);
 
@@ -119,12 +137,17 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Save assistant response
+    const assistantMessageId = randomUUID();
     dbHelpers.insertMessage({
-      id: randomUUID(),
+      id: assistantMessageId,
       conversation_id: conversation.id,
       role: 'assistant',
       content: fullResponse,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      references: retrievalReferences.map(ref => ({
+        ...ref,
+        id: ref.id || `${assistantMessageId}-ref-${ref.index}`
+      }))
     });
     dbHelpers.touchConversation(conversation.id);
 
@@ -173,7 +196,8 @@ router.post('/conversations', (req: Request, res: Response) => {
     title: '对话',
     summary: '新的对话',
     created_at: now,
-    updated_at: now
+    updated_at: now,
+    message_count: 0
   };
   dbHelpers.createConversation(conversation);
   res.json({ success: true, data: conversation } as ApiResponse<Conversation>);

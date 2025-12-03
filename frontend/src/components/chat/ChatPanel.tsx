@@ -28,7 +28,7 @@ export default function ChatPanel({ className = '', style }: ChatPanelProps) {
   return (
     <div
       style={style}
-      className={`flex w-full flex-1 flex-col border-b border-gray-100 bg-white lg:min-w-[420px] lg:border-b-0 lg:border-x lg:shadow-sm ${className}`.trim()}
+      className={`flex w-full flex-1 min-h-0 flex-col border-b border-gray-100 bg-white lg:min-w-[420px] lg:border-b-0 lg:border-x lg:shadow-sm ${className}`.trim()}
     >
       <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-white via-white to-blue-50/40 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3 text-gray-800">
