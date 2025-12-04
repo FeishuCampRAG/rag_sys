@@ -50,6 +50,17 @@ export interface DocumentChunk {
   created_at: string;
 }
 
+export type RAGProcessStep = 'embedding' | 'retrieval' | 'prompt' | 'generating' | 'done' | 'error';
+export type StepStatus = 'pending' | 'processing' | 'done' | 'error';
+export type RAGWorkStep = Exclude<RAGProcessStep, 'done' | 'error'>;
+
+export interface DocumentContent {
+  content: string;
+  filename?: string;
+  original_name?: string;
+  mime_type?: string;
+}
+
 // RAG Process types
 export interface RAGStep {
   step: 'embedding' | 'retrieval' | 'prompt' | 'generating';
@@ -109,6 +120,9 @@ export interface DocumentState {
   selectedDocId: string | null;
   selectedDocChunks: DocumentChunk[];
   chunksLoading: boolean;
+  selectedDocContent: string | null;
+  selectedDocLoading: boolean;
+  selectedDocError: string | null;
   fetchDocuments: () => Promise<void>;
   uploadDocument: (file: File) => Promise<ApiResponse<Document>>;
   pollDocumentStatus: (docId: string) => Promise<void>;
@@ -117,7 +131,8 @@ export interface DocumentState {
 }
 
 export interface RAGState {
-  currentStep: string | null;
+  currentStep: RAGProcessStep | null;
+  failedStep: RAGWorkStep | null;
   query: string;
   embeddingDone: boolean;
   embeddingDimension: number;
@@ -125,6 +140,7 @@ export interface RAGState {
   prompt: string;
   generating: boolean;
   generatedTokens: string;
+  errorMessage: string | null;
   reset: () => void;
   setQuery: (query: string) => void;
   updateStep: (event: string, data: any) => void;
@@ -153,7 +169,7 @@ export interface DocumentItemProps {
 export interface StepCardProps {
   step: number;
   title: string;
-  status: 'pending' | 'processing' | 'done';
+  status: StepStatus;
   children?: React.ReactNode;
 }
 
@@ -161,6 +177,38 @@ export interface ChunkPreviewProps {
   chunk: DocumentChunk;
   index: number;
   onSelect?: () => void;
+}
+
+export interface QueryStepProps {
+  query: string;
+}
+
+export interface EmbeddingStepProps {
+  status: StepStatus;
+  embeddingDone: boolean;
+  dimension: number;
+  errorMessage?: string | null;
+}
+
+export interface RetrievalStepProps {
+  status: StepStatus;
+  chunks: DocumentChunk[];
+  errorMessage?: string | null;
+  onSelectChunk?: (index: number) => void;
+  onViewAllChunks?: () => void;
+}
+
+export interface PromptStepProps {
+  status: StepStatus;
+  prompt: string;
+  errorMessage?: string | null;
+}
+
+export interface GeneratingStepProps {
+  status: StepStatus;
+  generating: boolean;
+  tokens: string;
+  errorMessage?: string | null;
 }
 
 // UI types

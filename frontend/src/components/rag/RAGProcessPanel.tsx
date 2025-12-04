@@ -1,39 +1,76 @@
-import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRagStore } from '../../stores/ragStore';
 import { useUIStore } from '../../stores/uiStore';
-import StepCard from './StepCard';
-import ChunkPreview from './ChunkPreview';
-import Button from '../common/Button';
+import type { RAGWorkStep, StepStatus } from '../../types';
+import QueryStep from './QueryStep';
+import EmbeddingStep from './EmbeddingStep';
+import RetrievalStep from './RetrievalStep';
+import PromptStep from './PromptStep';
+import GeneratingStep from './GeneratingStep';
 
 interface RAGProcessPanelProps {
   className?: string;
   style?: CSSProperties;
 }
 
+const workSteps: RAGWorkStep[] = ['embedding', 'retrieval', 'prompt', 'generating'];
+
+const stepOrderIndex = (step: RAGWorkStep) => workSteps.indexOf(step);
+
 export default function RAGProcessPanel({ className = '', style }: RAGProcessPanelProps) {
   const {
     query,
     currentStep,
+    failedStep,
     embeddingDone,
     embeddingDimension,
     retrievedChunks,
     prompt,
     generating,
-    generatedTokens
+    generatedTokens,
+    errorMessage
   } = useRagStore();
   const openChunkView = useUIStore(state => state.openChunkView);
 
-  const [showPrompt, setShowPrompt] = useState(false);
+  const getErrorMessageForStep = (step: RAGWorkStep): string | null => {
+    if (currentStep !== 'error') return null;
+    if (!failedStep) return step === 'generating' ? (errorMessage ?? null) : null;
+    return failedStep === step ? (errorMessage ?? null) : null;
+  };
 
-  const getStepStatus = (step: string): 'pending' | 'processing' | 'done' => {
-    const steps = ['embedding', 'retrieval', 'prompt', 'generating', 'done'];
-    const currentIndex = steps.indexOf(currentStep || '');
-    const stepIndex = steps.indexOf(step);
+  const getEmbeddingStatus = (): StepStatus => {
+    if (currentStep === 'error' && failedStep === 'embedding') return 'error';
+    if (embeddingDone) return 'done';
+    if (currentStep === 'embedding') return 'processing';
+    return query ? 'pending' : 'pending';
+  };
 
-    if (stepIndex < currentIndex) return 'done';
-    if (stepIndex === currentIndex) return currentStep === 'done' ? 'done' : 'processing';
-    return 'pending';
+  const getRetrievalStatus = (): StepStatus => {
+    if (currentStep === 'error' && failedStep === 'retrieval') return 'error';
+    if (retrievedChunks.length > 0) return 'done';
+    if (currentStep === 'retrieval') return 'processing';
+    return embeddingDone ? 'pending' : 'pending';
+  };
+
+  const getPromptStatus = (): StepStatus => {
+    if (currentStep === 'error' && failedStep === 'prompt') return 'error';
+    if (prompt.trim().length > 0) return 'done';
+    if (currentStep === 'prompt') return 'processing';
+    return retrievedChunks.length > 0 ? 'pending' : 'pending';
+  };
+
+  const getGeneratingStatus = (): StepStatus => {
+    if (currentStep === 'done') return 'done';
+    if (currentStep === 'error') {
+      if (!failedStep || failedStep === 'generating') {
+        return 'error';
+      }
+      const failedIndex = stepOrderIndex(failedStep);
+      const generatingIndex = stepOrderIndex('generating');
+      return failedIndex < generatingIndex ? 'pending' : 'error';
+    }
+    if (generating || currentStep === 'generating') return 'processing';
+    return prompt.trim().length > 0 ? 'pending' : 'pending';
   };
 
   return (
@@ -51,94 +88,35 @@ export default function RAGProcessPanel({ className = '', style }: RAGProcessPan
           </h2>
 
           <div className="space-y-3">
-            <StepCard step={1} title="用户问题" status={query ? 'done' : 'pending'}>
-              {query && (
-                <div className="mt-2 rounded border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
-                  {query}
-                </div>
-              )}
-            </StepCard>
+            <QueryStep query={query} />
 
-            <StepCard step={2} title="Query 向量化" status={getStepStatus('embedding')}>
-              {embeddingDone && (
-                <div className="mt-2 text-xs text-gray-500">
-                  已完成 · 维度: {embeddingDimension}
-                </div>
-              )}
-            </StepCard>
+            <EmbeddingStep
+              status={getEmbeddingStatus()}
+              embeddingDone={embeddingDone}
+              dimension={embeddingDimension}
+              errorMessage={getErrorMessageForStep('embedding')}
+            />
 
-            <StepCard
-              step={3}
-              title={`检索结果${retrievedChunks.length > 0 ? ` (Top ${retrievedChunks.length})` : ''}`}
-              status={getStepStatus('retrieval')}
-            >
-              {retrievedChunks.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {retrievedChunks.map((chunk, index) => (
-                    <ChunkPreview
-                      key={chunk.id}
-                      chunk={chunk}
-                      index={index}
-                      onSelect={() => openChunkView(retrievedChunks, index)}
-                    />
-                  ))}
-                  <div className="pt-1 text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openChunkView(retrievedChunks)}
-                    >
-                      查看全部 Chunks
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </StepCard>
+            <RetrievalStep
+              status={getRetrievalStatus()}
+              chunks={retrievedChunks}
+              errorMessage={getErrorMessageForStep('retrieval')}
+              onSelectChunk={retrievedChunks.length ? (index) => openChunkView(retrievedChunks, index) : undefined}
+              onViewAllChunks={retrievedChunks.length ? () => openChunkView(retrievedChunks) : undefined}
+            />
 
-            <StepCard step={4} title="Prompt 组装" status={getStepStatus('prompt')}>
-              {prompt && (
-                <div className="mt-2">
-                  <button
-                    onClick={() => setShowPrompt(!showPrompt)}
-                    className="flex items-center gap-1 text-xs text-blue-600 transition hover:text-blue-700"
-                  >
-                    {showPrompt ? '收起' : '展开查看'}
-                    <svg
-                      className={`h-3 w-3 transition-transform ${showPrompt ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showPrompt && (
-                    <div className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
-                      {prompt}
-                    </div>
-                  )}
-                </div>
-              )}
-            </StepCard>
+            <PromptStep
+              status={getPromptStatus()}
+              prompt={prompt}
+              errorMessage={getErrorMessageForStep('prompt')}
+            />
 
-            <StepCard step={5} title="生成回答" status={getStepStatus('generating')}>
-              {generating && (
-                <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
-                  <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-current" />
-                  生成中...
-                </div>
-              )}
-              {currentStep === 'done' && (
-                <div className="mt-2 text-xs text-green-600">
-                  生成完成
-                </div>
-              )}
-              {generatedTokens && !generating && currentStep === 'done' && (
-                <div className="mt-2 max-h-40 overflow-y-auto rounded border border-green-100 bg-white px-3 py-2 text-xs text-gray-600">
-                  {generatedTokens}
-                </div>
-              )}
-            </StepCard>
+            <GeneratingStep
+              status={getGeneratingStatus()}
+              generating={generating}
+              tokens={generatedTokens}
+              errorMessage={getErrorMessageForStep('generating') ?? errorMessage}
+            />
           </div>
         </div>
       </div>

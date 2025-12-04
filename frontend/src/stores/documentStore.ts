@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DocumentState, Document, DocumentChunk } from '../types';
+import { DocumentState } from '../types';
 import { api } from '../services/api';
 import { useUIStore } from './uiStore';
 
@@ -9,6 +9,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   selectedDocId: null,
   selectedDocChunks: [],
   chunksLoading: false,
+  selectedDocContent: null,
+  selectedDocLoading: false,
+  selectedDocError: null,
 
   fetchDocuments: async () => {
     const result = await api.getDocuments();
@@ -22,9 +25,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     try {
       const result = await api.uploadDocument(file);
       if (result.success && result.data) {
-        // Refresh document list
         await get().fetchDocuments();
-        // Poll for status update
         get().pollDocumentStatus(result.data.id);
       }
       return result;
@@ -53,7 +54,14 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     if (result.success) {
       await get().fetchDocuments();
       if (get().selectedDocId === id) {
-        set({ selectedDocId: null, selectedDocChunks: [] });
+        set({
+          selectedDocId: null,
+          selectedDocChunks: [],
+          chunksLoading: false,
+          selectedDocContent: null,
+          selectedDocLoading: false,
+          selectedDocError: null
+        });
       }
     }
     return result;
@@ -61,32 +69,73 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   selectDocument: async (id: string | null) => {
     const notify = useUIStore.getState().pushToast;
+
     if (!id) {
-      set({ selectedDocId: null, selectedDocChunks: [], chunksLoading: false });
+      set({
+        selectedDocId: null,
+        selectedDocChunks: [],
+        chunksLoading: false,
+        selectedDocContent: null,
+        selectedDocLoading: false,
+        selectedDocError: null
+      });
       return;
     }
 
-    set({ selectedDocId: id, selectedDocChunks: [], chunksLoading: true });
-    try {
-      const result = await api.getDocumentChunks(id);
-      if (result.success && result.data) {
-        set({ selectedDocChunks: result.data, chunksLoading: false });
-        return;
+    set({
+      selectedDocId: id,
+      selectedDocChunks: [],
+      chunksLoading: true,
+      selectedDocContent: null,
+      selectedDocLoading: true,
+      selectedDocError: null
+    });
+
+    const loadChunks = async () => {
+      try {
+        const result = await api.getDocumentChunks(id);
+        if (result.success && result.data) {
+          set({ selectedDocChunks: result.data, chunksLoading: false });
+          return;
+        }
+        set({ selectedDocChunks: [], chunksLoading: false });
+        notify({
+          type: 'error',
+          title: '拉取片段失败',
+          message: result.error || '未能获取文档片段，请稍后再试'
+        });
+      } catch (error) {
+        set({ selectedDocChunks: [], chunksLoading: false });
+        const message = error instanceof Error ? error.message : '未能获取文档片段，请稍后再试';
+        notify({
+          type: 'error',
+          title: '拉取片段失败',
+          message
+        });
       }
-      set({ selectedDocChunks: [], chunksLoading: false });
-      notify({
-        type: 'error',
-        title: '拉取片段失败',
-        message: result.error || '未能获取文档片段，请稍后再试'
-      });
-    } catch (error) {
-      set({ selectedDocChunks: [], chunksLoading: false });
-      const message = error instanceof Error ? error.message : '未能获取文档片段，请稍后再试';
-      notify({
-        type: 'error',
-        title: '拉取片段失败',
-        message
-      });
-    }
+    };
+
+    const loadContent = async () => {
+      try {
+        const result = await api.getDocumentContent(id);
+        if (result.success && result.data && typeof result.data.content === 'string') {
+          set({ selectedDocContent: result.data.content, selectedDocLoading: false });
+        } else {
+          set({
+            selectedDocContent: null,
+            selectedDocLoading: false,
+            selectedDocError: result.error || '文档内容加载失败'
+          });
+        }
+      } catch (error) {
+        set({
+          selectedDocContent: null,
+          selectedDocLoading: false,
+          selectedDocError: error instanceof Error ? error.message : '文档内容加载失败'
+        });
+      }
+    };
+
+    await Promise.all([loadChunks(), loadContent()]);
   }
 }));
