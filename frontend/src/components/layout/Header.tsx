@@ -1,8 +1,17 @@
+import Button from '../common/Button';
+import { useChatStore } from '../../stores/chatStore';
+import { useUIStore } from '../../stores/uiStore';
+
 interface HeaderProps {
   variant?: 'chat' | 'knowledge';
 }
 
 export default function Header({ variant = 'chat' }: HeaderProps) {
+  const clearHistory = useChatStore(state => state.clearHistory);
+  const openConfirm = useUIStore(state => state.openConfirm);
+  const setLoading = useUIStore(state => state.setLoading);
+  const showToast = useUIStore(state => state.showToast);
+
   const openKnowledgeBase = () => {
     window.open('/kb', variant === 'chat' ? '_blank' : '_self');
   };
@@ -11,6 +20,30 @@ export default function Header({ variant = 'chat' }: HeaderProps) {
     if (variant === 'knowledge') {
       window.open('/', '_self');
     }
+  };
+
+  const handleClearConversation = () => {
+    if (variant !== 'chat') return;
+    openConfirm({
+      title: '清空当前对话？',
+      description: '该操作会删除当前会话中的全部聊天记录，且无法恢复，请谨慎操作。',
+      confirmText: '立即清空',
+      cancelText: '暂不',
+      danger: true,
+      onConfirm: async () => {
+        setLoading(true, '正在清空对话...');
+        try {
+          const success = await clearHistory();
+          if (success) {
+            showToast({ type: 'success', message: '对话记录已清空' });
+          } else {
+            showToast({ type: 'error', message: '清空失败，请稍后重试' });
+          }
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   const subtitle = variant === 'knowledge' ? '知识库管理端' : '知识库演示系统';
@@ -32,19 +65,18 @@ export default function Header({ variant = 'chat' }: HeaderProps) {
       </button>
 
       {variant === 'chat' ? (
-        <button
-          onClick={openKnowledgeBase}
-          className="h-9 rounded-md bg-blue-600 px-4 text-sm text-white shadow-sm transition-colors hover:bg-blue-500"
-        >
-          知识库管理
-        </button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleClearConversation}>
+            清空对话
+          </Button>
+          <Button size="sm" onClick={openKnowledgeBase}>
+            知识库管理
+          </Button>
+        </div>
       ) : (
-        <button
-          onClick={goHome}
-          className="h-9 rounded-md border border-gray-200 px-4 text-sm text-gray-700 transition-colors hover:border-blue-200 hover:text-blue-600"
-        >
+        <Button variant="outline" size="sm" onClick={goHome}>
           返回对话窗口
-        </button>
+        </Button>
       )}
     </header>
   );

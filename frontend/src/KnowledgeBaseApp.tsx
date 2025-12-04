@@ -6,6 +6,9 @@ import UploadProgress from './components/sidebar/UploadProgress';
 import DocumentList from './components/sidebar/DocumentList';
 import DocumentViewer from './components/sidebar/DocumentViewer';
 import { useDocumentStore } from './stores/documentStore';
+import ChunkViewModal from './components/modals/ChunkViewModal';
+import ConfirmModal from './components/modals/ConfirmModal';
+import ToastContainer from './components/common/Toast';
 
 export default function KnowledgeBaseApp() {
   const fetchDocuments = useDocumentStore(state => state.fetchDocuments);
@@ -48,6 +51,10 @@ export default function KnowledgeBaseApp() {
           </div>
         </div>
       </div>
+
+      <ChunkViewModal />
+      <ConfirmModal />
+      <ToastContainer />
     </div>
   );
 }

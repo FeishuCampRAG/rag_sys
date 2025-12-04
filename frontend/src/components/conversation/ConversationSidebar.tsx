@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { useConversationStore } from '../../stores/conversationStore';
 import { useChatStore } from '../../stores/chatStore';
+import { useConfirm } from '../../hooks/useConfirm';
+import { useToast } from '../../hooks/useToast';
 
 const formatTime = (value: string) => {
   const date = new Date(value);
@@ -17,6 +19,8 @@ interface ConversationSidebarProps {
 export default function ConversationSidebar({ className = '', style }: ConversationSidebarProps) {
   const { conversations, activeId, init, createConversation, selectConversation, deleteConversation } = useConversationStore();
   const loadHistory = useChatStore(state => state.loadHistory);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   useEffect(() => {
     init();
@@ -66,9 +70,30 @@ export default function ConversationSidebar({ className = '', style }: Conversat
             >
               <button
                 className="absolute right-2 top-2 rounded-md p-1 text-gray-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation();
-                  deleteConversation(conv.id);
+                  const shouldDelete = await confirm({
+                    title: '删除对话',
+                    message: '确认删除该对话吗？该操作无法恢复。',
+                    confirmText: '删除',
+                    danger: true
+                  });
+                  if (!shouldDelete) return;
+
+                  try {
+                    await deleteConversation(conv.id);
+                    toast({
+                      type: 'success',
+                      title: '操作成功',
+                      message: '对话已删除'
+                    });
+                  } catch (error) {
+                    toast({
+                      type: 'error',
+                      title: '删除失败',
+                      message: error instanceof Error ? error.message : '请稍后再试'
+                    });
+                  }
                 }}
                 aria-label="删除对话"
               >

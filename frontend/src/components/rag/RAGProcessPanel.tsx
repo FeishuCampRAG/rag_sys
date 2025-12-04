@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useRagStore } from '../../stores/ragStore';
+import { useUIStore } from '../../stores/uiStore';
 import type { RAGWorkStep, StepStatus } from '../../types';
 import QueryStep from './QueryStep';
 import EmbeddingStep from './EmbeddingStep';
@@ -29,6 +30,7 @@ export default function RAGProcessPanel({ className = '', style }: RAGProcessPan
     generatedTokens,
     errorMessage
   } = useRagStore();
+  const openChunkView = useUIStore(state => state.openChunkView);
 
   const getErrorMessageForStep = (step: RAGWorkStep): string | null => {
     if (currentStep !== 'error') return null;
@@ -99,6 +101,8 @@ export default function RAGProcessPanel({ className = '', style }: RAGProcessPan
               status={getRetrievalStatus()}
               chunks={retrievedChunks}
               errorMessage={getErrorMessageForStep('retrieval')}
+              onSelectChunk={retrievedChunks.length ? (index) => openChunkView(retrievedChunks, index) : undefined}
+              onViewAllChunks={retrievedChunks.length ? () => openChunkView(retrievedChunks) : undefined}
             />
 
             <PromptStep
