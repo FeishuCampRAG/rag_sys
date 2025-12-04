@@ -4,6 +4,9 @@ import MainLayout from './components/layout/MainLayout';
 import ConversationSidebar from './components/conversation/ConversationSidebar';
 import ChatPanel from './components/chat/ChatPanel';
 import RAGProcessPanel from './components/rag/RAGProcessPanel';
+import ChunkViewModal from './components/modals/ChunkViewModal';
+import ConfirmModal from './components/modals/ConfirmModal';
+import ToastContainer from './components/common/Toast';
 
 type MobileSection = 'conversations' | 'chat' | 'process';
 
@@ -78,6 +81,9 @@ export default function App() {
           style={{ display: !isMobile || activeMobileSection === 'process' ? undefined : 'none' }}
         />
       </MainLayout>
+      <ChunkViewModal />
+      <ConfirmModal />
+      <ToastContainer />
     </div>
   );
 }

@@ -108,6 +108,7 @@ export interface DocumentState {
   uploading: boolean;
   selectedDocId: string | null;
   selectedDocChunks: DocumentChunk[];
+  chunksLoading: boolean;
   fetchDocuments: () => Promise<void>;
   uploadDocument: (file: File) => Promise<ApiResponse<Document>>;
   pollDocumentStatus: (docId: string) => Promise<void>;
@@ -159,4 +160,42 @@ export interface StepCardProps {
 export interface ChunkPreviewProps {
   chunk: DocumentChunk;
   index: number;
+}
+
+// UI helper types
+export type ToastType = 'info' | 'success' | 'warning' | 'error';
+
+export interface ToastOptions {
+  type?: ToastType;
+  title?: string;
+  message: string;
+  duration?: number;
+}
+
+export interface ToastMessage extends ToastOptions {
+  id: string;
+  type: ToastType;
+}
+
+export interface ConfirmDialogOptions {
+  title?: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  danger?: boolean;
+}
+
+export interface ConfirmDialogState extends ConfirmDialogOptions {
+  id: string;
+}
+
+export interface UIState {
+  toasts: ToastMessage[];
+  confirmDialog: ConfirmDialogState | null;
+  globalLoading: boolean;
+  pushToast: (toast: ToastOptions) => string;
+  removeToast: (id: string) => void;
+  showConfirm: (options: ConfirmDialogOptions) => Promise<boolean>;
+  resolveConfirm: (result: boolean) => void;
+  setGlobalLoading: (loading: boolean) => void;
 }

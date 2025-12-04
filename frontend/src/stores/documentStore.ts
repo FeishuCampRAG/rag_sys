@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import { DocumentState, Document, DocumentChunk } from '../types';
 import { api } from '../services/api';
+import { useUIStore } from './uiStore';
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
   uploading: false,
   selectedDocId: null,
   selectedDocChunks: [],
+  chunksLoading: false,
 
   fetchDocuments: async () => {
     const result = await api.getDocuments();
@@ -58,14 +60,33 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   selectDocument: async (id: string | null) => {
-    set({ selectedDocId: id });
-    if (id) {
+    const notify = useUIStore.getState().pushToast;
+    if (!id) {
+      set({ selectedDocId: null, selectedDocChunks: [], chunksLoading: false });
+      return;
+    }
+
+    set({ selectedDocId: id, selectedDocChunks: [], chunksLoading: true });
+    try {
       const result = await api.getDocumentChunks(id);
       if (result.success && result.data) {
-        set({ selectedDocChunks: result.data });
+        set({ selectedDocChunks: result.data, chunksLoading: false });
+        return;
       }
-    } else {
-      set({ selectedDocChunks: [] });
+      set({ selectedDocChunks: [], chunksLoading: false });
+      notify({
+        type: 'error',
+        title: '拉取片段失败',
+        message: result.error || '未能获取文档片段，请稍后再试'
+      });
+    } catch (error) {
+      set({ selectedDocChunks: [], chunksLoading: false });
+      const message = error instanceof Error ? error.message : '未能获取文档片段，请稍后再试';
+      notify({
+        type: 'error',
+        title: '拉取片段失败',
+        message
+      });
     }
   }
 }));

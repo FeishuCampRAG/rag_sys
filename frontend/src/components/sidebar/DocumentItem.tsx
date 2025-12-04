@@ -1,6 +1,8 @@
 import { MouseEvent } from 'react';
 import { useDocumentStore } from '../../stores/documentStore';
 import { Document } from '../../types';
+import { useConfirm } from '../../hooks/useConfirm';
+import { useToast } from '../../hooks/useToast';
 
 interface DocumentItemProps {
   document: Document;
@@ -9,11 +11,32 @@ interface DocumentItemProps {
 export default function DocumentItem({ document }: DocumentItemProps) {
   const { selectedDocId, selectDocument, deleteDocument } = useDocumentStore();
   const isSelected = selectedDocId === document.id;
+  const confirm = useConfirm();
+  const toast = useToast();
 
-  const handleDelete = (e: MouseEvent<HTMLButtonElement>) => {
+  const handleDelete = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    if (confirm(`确认删除 "${document.original_name}" 吗？`)) {
-      deleteDocument(document.id);
+    const confirmed = await confirm({
+      title: '删除文档',
+      message: `确认删除 “${document.original_name}” 吗？该操作不可撤销。`,
+      confirmText: '删除',
+      danger: true
+    });
+    if (!confirmed) return;
+
+    const result = await deleteDocument(document.id);
+    if (result.success) {
+      toast({
+        type: 'success',
+        title: '删除成功',
+        message: '文档已删除'
+      });
+    } else {
+      toast({
+        type: 'error',
+        title: '删除失败',
+        message: result.error || '请稍后再试'
+      });
     }
   };
 
