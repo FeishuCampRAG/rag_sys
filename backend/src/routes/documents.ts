@@ -54,8 +54,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     }
 
     const docId = path.basename(req.file.filename, path.extname(req.file.filename));
-    const mimeType = req.file.mimetype || getMimeType(req.file.originalname);
-
+    const rawMime = req.file.mimetype;
+    const mimeType =
+      rawMime && rawMime !== 'application/octet-stream'
+        ? rawMime
+        : getMimeType(req.file.originalname);
     // Insert document record
     dbHelpers.insertDocument({
       id: docId,
@@ -85,9 +88,9 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     } as ApiResponse);
   }
 });

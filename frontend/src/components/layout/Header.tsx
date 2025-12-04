@@ -36,7 +36,7 @@ export default function Header({ variant = 'chat' }: HeaderProps) {
           onClick={openKnowledgeBase}
           className="h-9 rounded-md bg-blue-600 px-4 text-sm text-white shadow-sm transition-colors hover:bg-blue-500"
         >
-          知识库管理
+          知识库管理/上传文档
         </button>
       ) : (
         <button
