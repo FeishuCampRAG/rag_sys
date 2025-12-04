@@ -22,7 +22,7 @@
 
 ## 环境要求
 
-- Node.js 18+
+- Node.js 18+111
 - npm 9+
 - SQLite（随 better-sqlite3 一并管理，无需额外安装）
 
