@@ -1,12 +1,14 @@
 import { create } from 'zustand';
-import { DocumentState, Document, DocumentChunk } from '../types';
+import { DocumentState } from '../types';
 import { api } from '../services/api';
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
   uploading: false,
   selectedDocId: null,
-  selectedDocChunks: [],
+  selectedDocContent: null,
+  selectedDocLoading: false,
+  selectedDocError: null,
 
   fetchDocuments: async () => {
     const result = await api.getDocuments();
@@ -51,21 +53,37 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     if (result.success) {
       await get().fetchDocuments();
       if (get().selectedDocId === id) {
-        set({ selectedDocId: null, selectedDocChunks: [] });
+        set({ selectedDocId: null, selectedDocContent: null, selectedDocLoading: false, selectedDocError: null });
       }
     }
     return result;
   },
 
   selectDocument: async (id: string | null) => {
-    set({ selectedDocId: id });
-    if (id) {
-      const result = await api.getDocumentChunks(id);
-      if (result.success && result.data) {
-        set({ selectedDocChunks: result.data });
+    if (!id) {
+      set({ selectedDocId: null, selectedDocContent: null, selectedDocLoading: false, selectedDocError: null });
+      return;
+    }
+
+    set({ selectedDocId: id, selectedDocContent: null, selectedDocLoading: true, selectedDocError: null });
+
+    try {
+      const result = await api.getDocumentContent(id);
+      if (result.success && result.data && typeof result.data.content === 'string') {
+        set({ selectedDocContent: result.data.content, selectedDocLoading: false });
+      } else {
+        set({
+          selectedDocContent: null,
+          selectedDocLoading: false,
+          selectedDocError: result.error || '文档内容加载失败'
+        });
       }
-    } else {
-      set({ selectedDocChunks: [] });
+    } catch (error) {
+      set({
+        selectedDocContent: null,
+        selectedDocLoading: false,
+        selectedDocError: error instanceof Error ? error.message : '文档内容加载失败'
+      });
     }
   }
 }));
