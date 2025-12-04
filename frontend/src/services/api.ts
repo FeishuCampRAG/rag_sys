@@ -1,4 +1,4 @@
-import { ApiResponse, Document, DocumentChunk, Message, Conversation } from '../types';
+import { ApiResponse, Document, DocumentChunk, DocumentContent, Message, Conversation } from '../types';
 
 const API_BASE = '/api';
 
@@ -26,6 +26,11 @@ export const api = {
 
   async getDocumentChunks(id: string): Promise<ApiResponse<DocumentChunk[]>> {
     const response = await fetch(`${API_BASE}/documents/${id}/chunks`);
+    return response.json();
+  },
+
+  async getDocumentContent(id: string): Promise<ApiResponse<DocumentContent>> {
+    const response = await fetch(`${API_BASE}/documents/${id}/content`);
     return response.json();
   },
 

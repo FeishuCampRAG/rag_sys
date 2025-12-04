@@ -54,8 +54,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     }
 
     const docId = path.basename(req.file.filename, path.extname(req.file.filename));
-    const mimeType = req.file.mimetype || getMimeType(req.file.originalname);
-
+    const rawMime = req.file.mimetype;
+    const mimeType =
+      rawMime && rawMime !== 'application/octet-stream'
+        ? rawMime
+        : getMimeType(req.file.originalname);
     // Insert document record
     dbHelpers.insertDocument({
       id: docId,
@@ -85,9 +88,9 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     } as ApiResponse);
   }
 });
@@ -174,6 +177,40 @@ router.get('/:id', (req: Request, res: Response) => {
 router.get('/:id/chunks', (req: Request, res: Response) => {
   const chunks = dbHelpers.getChunksByDocumentId(req.params.id!);
   res.json({ success: true, data: chunks } as ApiResponse);
+});
+
+// Get original document content
+router.get('/:id/content', async (req: Request, res: Response) => {
+  try {
+    const document = dbHelpers.getDocument(req.params.id!);
+    if (!document) {
+      return res.status(404).json({ success: false, error: 'Document not found' } as ApiResponse);
+    }
+
+    const filePath = path.join(uploadsDir, document.filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: 'Document file not found' } as ApiResponse);
+    }
+
+    const mimeType = document.mime_type || getMimeType(document.filename);
+    const content = await parseDocument(filePath, mimeType);
+
+    res.json({
+      success: true,
+      data: {
+        content,
+        mime_type: mimeType,
+        filename: document.filename,
+        original_name: document.original_name
+      }
+    } as ApiResponse);
+  } catch (error) {
+    console.error('Fetch document content error:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
 });
 
 // Delete document

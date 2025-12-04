@@ -1,12 +1,14 @@
-import { useRef, ChangeEvent } from 'react';
-import { useDocumentStore } from '../../stores/documentStore';
+﻿import { useRef, ChangeEvent, useState } from "react";
+import { useDocumentStore } from "../../stores/documentStore";
 
 export default function UploadButton() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { uploading, uploadDocument } = useDocumentStore();
+  const { uploading, uploadDocument, documents, deleteDocument } = useDocumentStore();
+  const [error, setError] = useState<string | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   const handleClick = () => {
-    if (!uploading) {
+    if (!uploading && !deletingAll) {
       fileInputRef.current?.click();
     }
   };
@@ -15,11 +17,64 @@ export default function UploadButton() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    setError(null);
+
+    const emptyFiles: string[] = [];
+    const invalidTypeFiles: string[] = [];
+    const failedFiles: string[] = [];
+
     for (const file of Array.from(files)) {
-      await uploadDocument(file);
+      if (file.size === 0) {
+        emptyFiles.push(file.name);
+        continue;
+      }
+
+      if (!/\.(pdf|txt|md)$/i.test(file.name)) {
+        invalidTypeFiles.push(file.name);
+        continue;
+      }
+
+      try {
+        const result = await uploadDocument(file);
+        if (!result?.success) {
+          failedFiles.push(file.name);
+        }
+      } catch {
+        failedFiles.push(file.name);
+      }
     }
 
-    e.target.value = '';
+    if (emptyFiles.length > 0) {
+      setError(`以下文件内容为空或者无效：${emptyFiles.join("、")}`);
+    } else if (invalidTypeFiles.length > 0) {
+      setError(`以下文件类型不支持，仅支持 PDF / TXT / MD：${invalidTypeFiles.join("、")}`);
+    } else if (failedFiles.length > 0) {
+      setError(`以下文件上传失败，请稍后重试：${failedFiles.join("、")}`);
+    }
+
+    e.target.value = "";
+  };
+
+  const handleDeleteAll = async () => {
+    if (!documents || documents.length === 0) {
+      setError("当前没有可删除的文档");
+      return;
+    }
+
+    const confirmed = confirm("确定一键删除所有已上传文档吗？此操作不可恢复。");
+    if (!confirmed) return;
+
+    setError(null);
+    setDeletingAll(true);
+    try {
+      for (const doc of documents) {
+        await deleteDocument(doc.id);
+      }
+    } catch {
+      setError("删除失败，请稍后重试");
+    } finally {
+      setDeletingAll(false);
+    }
   };
 
   return (
@@ -27,7 +82,7 @@ export default function UploadButton() {
       <button
         type="button"
         onClick={handleClick}
-        disabled={uploading}
+        disabled={uploading || deletingAll}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
       >
         {uploading ? (
@@ -47,6 +102,14 @@ export default function UploadButton() {
           </>
         )}
       </button>
+      <button
+        type="button"
+        onClick={handleDeleteAll}
+        disabled={uploading || deletingAll}
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {deletingAll ? "正在删除所有文档..." : "删除所有上传文档"}
+      </button>
       <input
         ref={fileInputRef}
         type="file"
@@ -55,6 +118,22 @@ export default function UploadButton() {
         onChange={handleFileChange}
         className="hidden"
       />
+      {error && (
+        <div className="mt-2 flex items-start gap-1 text-xs text-red-500">
+          <svg
+            className="mt-[1px] h-3.5 w-3.5 flex-shrink-0"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59C19.02 16.42 18.245 18 16.773 18H3.227C1.755 18 .98 16.42 1.739 14.69l6.518-11.59zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-1-2a1 1 0 01-1-1V8a1 1 0 112 0v3a1 1 0 01-1 1z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
     </>
   );
 }
