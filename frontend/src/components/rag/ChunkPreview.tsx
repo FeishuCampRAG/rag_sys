@@ -4,10 +4,13 @@ export default function ChunkPreview({ chunk, index }: ChunkPreviewProps) {
   return (
     <div className="p-2 bg-white rounded border border-gray-200 text-xs">
       <div className="flex items-center justify-between mb-1">
-        <span className="font-medium text-gray-700 truncate flex-1">
-          {chunk.document_name}
-        </span>
-        <span className="text-blue-600 font-medium ml-2">
+        <div className="flex items-center gap-2 truncate">
+          <span className="font-mono text-[11px] text-gray-400">#{index + 1}</span>
+          <span className="font-medium text-gray-700 truncate">
+            {chunk.document_name}
+          </span>
+        </div>
+        <span className="ml-2 font-medium text-blue-600">
           {chunk.similarity.toFixed(2)}
         </span>
       </div>
