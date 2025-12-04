@@ -141,8 +141,8 @@ cleanup() {
         rm "$SCRIPT_DIR/.frontend.pid"
     fi
     # 确保所有相关进程都被终止
-    pkill -f "node.*rag-demo/backend" 2>/dev/null || true
-    pkill -f "node.*rag-demo/frontend" 2>/dev/null || true
+    pkill -f "node.*rag-sys/backend" 2>/dev/null || true
+    pkill -f "node.*rag-sys/frontend" 2>/dev/null || true
     echo "✓ 服务已停止"
     exit 0
 }

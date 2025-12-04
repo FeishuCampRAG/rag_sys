@@ -6,6 +6,15 @@ export interface Config {
   port: number;
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  summary: string;
+  created_at: string;
+  updated_at: string;
+  message_count?: number;
+}
+
 export interface Document {
   id: string;
   filename: string;
@@ -26,11 +35,35 @@ export interface Chunk {
   char_count?: number;
 }
 
-export interface ChatHistory {
-  id: number;
+export interface ChatMessageRecord {
+  id: string;
+  conversation_id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   created_at: string;
+}
+
+export interface ChatReference {
+  id: string;
+  index: number;
+  document_name: string;
+  content?: string;
+  similarity?: number;
+  chunk_id?: string;
+}
+
+export interface MessageReferenceRecord {
+  id: string;
+  message_id: string;
+  ref_index: number;
+  chunk_id?: string;
+  document_name: string;
+  content?: string;
+  similarity?: number;
+}
+
+export interface ChatMessageWithReferences extends ChatMessageRecord {
+  references?: ChatReference[];
 }
 
 export interface VectorData {
@@ -97,6 +130,7 @@ export interface ChatTokenEvent {
 
 export interface ChatDoneEvent {
   fullResponse: string;
+  conversationId?: string;
 }
 
 export interface ChatErrorEvent {

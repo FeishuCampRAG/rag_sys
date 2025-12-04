@@ -1,8 +1,30 @@
 // Message types
+export interface ChatReference {
+  id: string;
+  document_name: string;
+  similarity?: number;
+  content?: string;
+  index: number;
+}
+
 export interface Message {
+  id?: string;
   role: 'user' | 'assistant';
   content: string;
   created_at: string;
+  streaming?: boolean;
+  error?: boolean;
+  references?: ChatReference[];
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  summary: string;
+  created_at: string;
+  updated_at: string;
+  messages?: Message[];
+  message_count?: number;
 }
 
 // Document types
@@ -63,6 +85,22 @@ export interface ChatState {
   loadHistory: () => Promise<void>;
   sendMessage: (content: string, onRagEvent?: (event: string, data: any) => void) => Promise<void>;
   clearHistory: () => Promise<void>;
+}
+
+export interface ConversationState {
+  conversations: Conversation[];
+  activeId: string | null;
+  initialized: boolean;
+  initializing: boolean;
+  init: () => Promise<void>;
+  ensureActiveConversation: () => Promise<string>;
+  fetchConversations: () => Promise<Conversation[]>;
+  createConversation: () => Promise<string>;
+  selectConversation: (id: string) => void;
+  getConversationMessages: (id: string) => Promise<Message[]>;
+  updateMessages: (id: string, messages: Message[]) => void;
+  updateSummary: (id: string, summary: string) => void;
+  deleteConversation: (id: string) => Promise<void>;
 }
 
 export interface DocumentState {

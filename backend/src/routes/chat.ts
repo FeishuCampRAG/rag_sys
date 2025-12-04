@@ -1,15 +1,49 @@
 import { Router, Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { dbHelpers } from '../db/sqlite.js';
 import { getEmbedding } from '../services/embedding.js';
 import { searchVectors } from '../services/vectorStore.js';
 import { streamChat, buildPrompt } from '../services/llm.js';
-import type { ApiResponse, ChatHistory, ChatStepEvent, ChatTokenEvent, ChatDoneEvent, ChatErrorEvent } from '../types/index.js';
+import type {
+  ApiResponse,
+  ChatStepEvent,
+  ChatTokenEvent,
+  ChatDoneEvent,
+  ChatErrorEvent,
+  Conversation,
+  ChatReference
+} from '../types/index.js';
 
 const router = Router();
 
+const summarize = (text: string): string => {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (!clean) return '新的对话';
+  return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean;
+};
+
+const ensureConversation = (conversationId: string, firstMessage?: string): Conversation => {
+  const existing = conversationId ? dbHelpers.getConversation(conversationId) : undefined;
+  if (existing) return existing;
+
+  const now = new Date().toISOString();
+  const id = conversationId || randomUUID();
+  const summary = summarize(firstMessage || '新的对话');
+  const conversation: Conversation = {
+    id,
+    title: '对话',
+    summary,
+    created_at: now,
+    updated_at: now,
+    message_count: 0
+  };
+  dbHelpers.createConversation(conversation);
+  return conversation;
+};
+
 // Send message (SSE)
 router.post('/', async (req: Request, res: Response) => {
-  const { message } = req.body;
+  const { message, conversationId } = req.body;
 
   if (!message) {
     return res.status(400).json({ success: false, error: 'Message is required' } as ApiResponse);
@@ -26,8 +60,24 @@ router.post('/', async (req: Request, res: Response) => {
   };
 
   try {
+    const conversation = ensureConversation(conversationId, message);
+    let retrievalReferences: ChatReference[] = [];
+
     // Save user message
-    dbHelpers.insertChatMessage('user', message);
+    dbHelpers.insertMessage({
+      id: randomUUID(),
+      conversation_id: conversation.id,
+      role: 'user',
+      content: message,
+      created_at: new Date().toISOString()
+    });
+
+    // Update summary when it's still the default
+    if (!conversation.summary || conversation.summary === '新的对话') {
+      dbHelpers.updateConversationSummary(conversation.id, summarize(message));
+    } else {
+      dbHelpers.touchConversation(conversation.id);
+    }
 
     // Step 1: Embedding
     sendEvent('step', { step: 'embedding', status: 'processing' } as ChatStepEvent);
@@ -41,14 +91,22 @@ router.post('/', async (req: Request, res: Response) => {
     // Step 2: Retrieval
     sendEvent('step', { step: 'retrieval', status: 'processing' } as ChatStepEvent);
     const chunks = searchVectors(queryEmbedding, 3, 0.5);
+    retrievalReferences = chunks.map((chunk, index) => ({
+      id: chunk.id || randomUUID(),
+      chunk_id: chunk.id,
+      index: index + 1,
+      document_name: chunk.document_name,
+      content: chunk.content,
+      similarity: Math.round(chunk.similarity * 100) / 100
+    }));
     sendEvent('step', {
       step: 'retrieval',
       status: 'done',
-      chunks: chunks.map(c => ({
-        id: c.id,
-        content: c.content,
-        document_name: c.document_name,
-        similarity: Math.round(c.similarity * 100) / 100
+      chunks: retrievalReferences.map(ref => ({
+        id: ref.chunk_id ?? ref.id,
+        content: ref.content,
+        document_name: ref.document_name,
+        similarity: ref.similarity
       }))
     } as ChatStepEvent);
 
@@ -65,13 +123,12 @@ router.post('/', async (req: Request, res: Response) => {
     ];
 
     // Add conversation history
-    const history = dbHelpers.getRecentChatHistory(10).reverse();
-    for (const msg of history.slice(0, -1)) {
+    const history = dbHelpers.getRecentMessagesByConversationId(conversation.id, 10).reverse();
+    for (const msg of history) {
       if (msg.role === 'user' || msg.role === 'assistant') {
         messages.push({ role: msg.role, content: msg.content });
       }
     }
-    messages.push({ role: 'user', content: message });
 
     let fullResponse = '';
     for await (const token of streamChat(messages)) {
@@ -80,9 +137,21 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Save assistant response
-    dbHelpers.insertChatMessage('assistant', fullResponse);
+    const assistantMessageId = randomUUID();
+    dbHelpers.insertMessage({
+      id: assistantMessageId,
+      conversation_id: conversation.id,
+      role: 'assistant',
+      content: fullResponse,
+      created_at: new Date().toISOString(),
+      references: retrievalReferences.map(ref => ({
+        ...ref,
+        id: ref.id || `${assistantMessageId}-ref-${ref.index}`
+      }))
+    });
+    dbHelpers.touchConversation(conversation.id);
 
-    sendEvent('done', { fullResponse } as ChatDoneEvent);
+    sendEvent('done', { fullResponse, conversationId: conversation.id } as ChatDoneEvent);
     res.end();
 
   } catch (error) {
@@ -93,15 +162,53 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// Get chat history
+// Get messages for a conversation
 router.get('/history', (req: Request, res: Response) => {
-  const history = dbHelpers.getChatHistory();
-  res.json({ success: true, data: history } as ApiResponse<ChatHistory[]>);
+  const { conversationId } = req.query;
+  if (!conversationId || typeof conversationId !== 'string') {
+    return res.status(400).json({ success: false, error: 'conversationId is required' } as ApiResponse);
+  }
+  const messages = dbHelpers.getMessagesByConversationId(conversationId);
+  res.json({ success: true, data: messages } as ApiResponse);
 });
 
-// Clear chat history
+// Clear messages for a conversation
 router.delete('/history', (req: Request, res: Response) => {
-  dbHelpers.clearChatHistory();
+  const { conversationId } = req.query;
+  if (!conversationId || typeof conversationId !== 'string') {
+    return res.status(400).json({ success: false, error: 'conversationId is required' } as ApiResponse);
+  }
+  dbHelpers.deleteMessagesByConversationId(conversationId);
+  dbHelpers.touchConversation(conversationId);
+  res.json({ success: true } as ApiResponse);
+});
+
+// Conversation list
+router.get('/conversations', (req: Request, res: Response) => {
+  const list = dbHelpers.getAllConversations();
+  res.json({ success: true, data: list } as ApiResponse<Conversation[]>);
+});
+
+router.post('/conversations', (req: Request, res: Response) => {
+  const now = new Date().toISOString();
+  const conversation: Conversation = {
+    id: randomUUID(),
+    title: '对话',
+    summary: '新的对话',
+    created_at: now,
+    updated_at: now,
+    message_count: 0
+  };
+  dbHelpers.createConversation(conversation);
+  res.json({ success: true, data: conversation } as ApiResponse<Conversation>);
+});
+
+router.delete('/conversations/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({ success: false, error: 'Conversation ID is required' } as ApiResponse);
+  }
+  dbHelpers.deleteConversation(id);
   res.json({ success: true } as ApiResponse);
 });
 

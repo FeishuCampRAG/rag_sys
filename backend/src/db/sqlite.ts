@@ -1,16 +1,55 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { Document, Chunk, ChatHistory } from '../types/index.js';
+import type {
+  Document,
+  Chunk,
+  Conversation,
+  ChatMessageRecord,
+  ChatReference,
+  MessageReferenceRecord,
+  ChatMessageWithReferences
+} from '../types/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, '../../data/rag.db');
 
 let db: Database.Database | null = null;
 
+const ensureIsoTimestamp = (value: string | undefined | null): string | null => {
+  if (!value) return null;
+  if (/Z$|[+\-]\d{2}:\d{2}$/.test(value)) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+  const normalized = value.replace(' ', 'T');
+  const candidate = normalized.endsWith('Z') ? normalized : `${normalized}Z`;
+  const parsed = new Date(candidate);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
+const mapConversationRow = (row: Conversation): Conversation => {
+  const created = ensureIsoTimestamp(row.created_at) ?? row.created_at;
+  const updated = ensureIsoTimestamp(row.updated_at) ?? row.updated_at;
+  const messageCount =
+    typeof (row as any).message_count === 'number'
+      ? (row as any).message_count
+      : (row as any).message_count != null
+        ? Number((row as any).message_count)
+        : row.message_count;
+
+  return {
+    ...row,
+    created_at: created,
+    updated_at: updated,
+    message_count: messageCount
+  };
+};
+
 export function getDb(): Database.Database {
   if (!db) {
     db = new Database(dbPath);
+    db.pragma('foreign_keys = ON');
     initTables();
   }
   return db;
@@ -48,12 +87,35 @@ function initTables(): void {
       FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
     );
 
-    CREATE TABLE IF NOT EXISTS chat_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+    CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
       role TEXT NOT NULL,
       content TEXT NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS message_references (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL,
+      ref_index INTEGER NOT NULL,
+      chunk_id TEXT,
+      document_name TEXT NOT NULL,
+      content TEXT,
+      similarity REAL,
+      FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_message_references_message ON message_references(message_id);
   `);
 }
 
@@ -63,7 +125,6 @@ export function resetDb(): void {
   db.exec(`
     DELETE FROM chunks;
     DELETE FROM documents;
-    DELETE FROM chat_history;
   `);
 }
 
@@ -124,24 +185,153 @@ export const dbHelpers = {
     return db.prepare('DELETE FROM chunks WHERE document_id = ?').run(documentId);
   },
 
-  // Chat history operations
-  insertChatMessage: (role: string, content: string): Database.RunResult => {
+  // Conversation operations
+  createConversation: (conv: Conversation): Database.RunResult => {
     const db = getDb();
-    return db.prepare('INSERT INTO chat_history (role, content) VALUES (?, ?)').run(role, content);
+    return db.prepare(`
+      INSERT INTO conversations (id, title, summary, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(conv.id, conv.title, conv.summary, conv.created_at, conv.updated_at);
   },
 
-  getChatHistory: (): ChatHistory[] => {
+  getConversation: (id: string): Conversation | undefined => {
     const db = getDb();
-    return db.prepare('SELECT * FROM chat_history ORDER BY id').all() as ChatHistory[];
+    const row = db.prepare(`
+      SELECT
+        c.*,
+        (
+          SELECT COUNT(*)
+          FROM messages m
+          WHERE m.conversation_id = c.id
+        ) AS message_count
+      FROM conversations c
+      WHERE c.id = ?
+    `).get(id) as Conversation | undefined;
+    if (!row) return undefined;
+    return mapConversationRow(row);
   },
 
-  getRecentChatHistory: (limit: number = 10): ChatHistory[] => {
+  getAllConversations: (): Conversation[] => {
     const db = getDb();
-    return db.prepare('SELECT role, content FROM chat_history ORDER BY id DESC LIMIT ?').all(limit) as ChatHistory[];
+    const rows = db.prepare(`
+      SELECT
+        c.*,
+        (
+          SELECT COUNT(*)
+          FROM messages m
+          WHERE m.conversation_id = c.id
+        ) AS message_count
+      FROM conversations c
+      ORDER BY c.updated_at DESC
+    `).all() as Conversation[];
+    return rows.map(mapConversationRow);
   },
 
-  clearChatHistory: (): Database.RunResult => {
+  updateConversationSummary: (id: string, summary: string): Database.RunResult => {
     const db = getDb();
-    return db.prepare('DELETE FROM chat_history').run();
+    return db.prepare('UPDATE conversations SET summary = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(summary, id);
+  },
+
+  touchConversation: (id: string): Database.RunResult => {
+    const db = getDb();
+    return db.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(id);
+  },
+
+  deleteConversation: (id: string): Database.RunResult => {
+    const db = getDb();
+    return db.prepare('DELETE FROM conversations WHERE id = ?').run(id);
+  },
+
+  // Message operations
+  insertMessage: (msg: ChatMessageRecord & { references?: ChatReference[] }): Database.RunResult => {
+    const db = getDb();
+    const result = db.prepare(`
+      INSERT INTO messages (id, conversation_id, role, content, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(msg.id, msg.conversation_id, msg.role, msg.content, msg.created_at);
+
+    if (msg.references && msg.references.length > 0) {
+      const insertReference = db.prepare(`
+        INSERT INTO message_references (id, message_id, ref_index, chunk_id, document_name, content, similarity)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const insertMany = db.transaction((references: ChatReference[]) => {
+        for (const ref of references) {
+          const storedId = `${msg.id}-ref-${ref.index}`;
+          insertReference.run(
+            storedId,
+            msg.id,
+            ref.index,
+            ref.chunk_id ?? null,
+            ref.document_name,
+            ref.content ?? null,
+            typeof ref.similarity === 'number' ? ref.similarity : null
+          );
+        }
+      });
+
+      insertMany(msg.references);
+    }
+
+    return result;
+  },
+
+  getMessagesByConversationId: (conversationId: string): ChatMessageWithReferences[] => {
+    const db = getDb();
+    const rows = db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC')
+      .all(conversationId) as ChatMessageRecord[];
+
+    const messages = rows.map(row => {
+      const created = ensureIsoTimestamp(row.created_at) ?? row.created_at;
+      return { ...row, created_at: created };
+    });
+
+    const referenceStmt = db.prepare('SELECT * FROM message_references WHERE message_id = ? ORDER BY ref_index ASC');
+
+    return messages.map(message => {
+      const refs = referenceStmt.all(message.id) as MessageReferenceRecord[];
+      if (!refs.length) {
+        return message;
+      }
+
+      return {
+        ...message,
+        references: refs.map(ref => {
+          const reference: ChatReference = {
+            id: ref.id,
+            index: ref.ref_index,
+            document_name: ref.document_name
+          };
+
+          if (ref.content !== undefined && ref.content !== null) {
+            reference.content = ref.content;
+          }
+
+          if (typeof ref.similarity === 'number') {
+            reference.similarity = ref.similarity;
+          }
+
+          if (ref.chunk_id) {
+            reference.chunk_id = ref.chunk_id;
+          }
+
+          return reference;
+        })
+      };
+    });
+  },
+
+  getRecentMessagesByConversationId: (conversationId: string, limit: number = 10): Array<Pick<ChatMessageRecord, 'role' | 'content'>> => {
+    const db = getDb();
+    return db.prepare('SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?')
+      .all(conversationId, limit) as Array<Pick<ChatMessageRecord, 'role' | 'content'>>;
+  },
+
+  deleteMessagesByConversationId: (conversationId: string): Database.RunResult => {
+    const db = getDb();
+    return db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
   }
 };
