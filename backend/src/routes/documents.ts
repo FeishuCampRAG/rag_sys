@@ -176,6 +176,40 @@ router.get('/:id/chunks', (req: Request, res: Response) => {
   res.json({ success: true, data: chunks } as ApiResponse);
 });
 
+// Get original document content
+router.get('/:id/content', async (req: Request, res: Response) => {
+  try {
+    const document = dbHelpers.getDocument(req.params.id!);
+    if (!document) {
+      return res.status(404).json({ success: false, error: 'Document not found' } as ApiResponse);
+    }
+
+    const filePath = path.join(uploadsDir, document.filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: 'Document file not found' } as ApiResponse);
+    }
+
+    const mimeType = document.mime_type || getMimeType(document.filename);
+    const content = await parseDocument(filePath, mimeType);
+
+    res.json({
+      success: true,
+      data: {
+        content,
+        mime_type: mimeType,
+        filename: document.filename,
+        original_name: document.original_name
+      }
+    } as ApiResponse);
+  } catch (error) {
+    console.error('Fetch document content error:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+});
+
 // Delete document
 router.delete('/:id', (req: Request, res: Response) => {
   const document = dbHelpers.getDocument(req.params.id!);
