@@ -54,6 +54,13 @@ export type RAGProcessStep = 'embedding' | 'retrieval' | 'prompt' | 'generating'
 export type StepStatus = 'pending' | 'processing' | 'done' | 'error';
 export type RAGWorkStep = Exclude<RAGProcessStep, 'done' | 'error'>;
 
+export interface DocumentContent {
+  content: string;
+  filename?: string;
+  original_name?: string;
+  mime_type?: string;
+}
+
 // RAG Process types
 export interface RAGStep {
   step: 'embedding' | 'retrieval' | 'prompt' | 'generating';
@@ -111,7 +118,9 @@ export interface DocumentState {
   documents: Document[];
   uploading: boolean;
   selectedDocId: string | null;
-  selectedDocChunks: DocumentChunk[];
+  selectedDocContent: string | null;
+  selectedDocLoading: boolean;
+  selectedDocError: string | null;
   fetchDocuments: () => Promise<void>;
   uploadDocument: (file: File) => Promise<ApiResponse<Document>>;
   pollDocumentStatus: (docId: string) => Promise<void>;
