@@ -3,8 +3,9 @@ import type {
   UIState,
   ToastMessage,
   ToastOptions,
+  ConfirmModalState,
   ConfirmDialogOptions,
-  ConfirmDialogState
+  DocumentChunk
 } from '../types';
 
 const createId = () => {
@@ -14,54 +15,128 @@ const createId = () => {
   return `ui-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 };
 
-let confirmResolver: ((result: boolean) => void) | null = null;
+const DEFAULT_TOAST_DURATION = 3200;
 
-const withDefaults = (options: ConfirmDialogOptions): ConfirmDialogState => ({
-  id: createId(),
-  title: options.title || '操作确认',
-  message: options.message,
-  confirmText: options.confirmText || '确定',
-  cancelText: options.cancelText || '取消',
-  danger: options.danger ?? false
+const defaultConfirm: ConfirmModalState = {
+  open: false,
+  title: '',
+  description: '',
+  confirmText: '确认',
+  cancelText: '取消',
+  danger: false
+};
+
+const buildToastPayload = (toast: Omit<ToastMessage, 'id'> & { id?: string }): ToastMessage => ({
+  id: toast.id || createId(),
+  type: toast.type || 'info',
+  title: toast.title,
+  message: toast.message,
+  duration: toast.duration ?? DEFAULT_TOAST_DURATION
 });
 
-export const useUIStore = create<UIState>((set, get) => ({
-  toasts: [],
-  confirmDialog: null,
-  globalLoading: false,
+let pendingConfirmResolver: ((value: boolean) => void) | null = null;
+const resolvePendingConfirm = (result: boolean) => {
+  if (pendingConfirmResolver) {
+    const resolver = pendingConfirmResolver;
+    pendingConfirmResolver = null;
+    resolver(result);
+  }
+};
 
-  pushToast: (toast: ToastOptions) => {
-    const next: ToastMessage = {
-      id: createId(),
-      type: toast.type || 'info',
-      title: toast.title,
-      message: toast.message,
-      duration: toast.duration ?? 2600
-    };
-    set(state => ({ toasts: [...state.toasts, next] }));
-    return next.id;
+export const useUIStore = create<UIState>((set, get) => ({
+  loading: { open: false, message: '' },
+  toastQueue: [],
+  confirm: defaultConfirm,
+  chunkView: {
+    open: false,
+    chunks: [],
+    activeIndex: 0
   },
 
-  removeToast: (id: string) => {
-    set(state => ({ toasts: state.toasts.filter(toast => toast.id !== id) }));
+  setLoading: (open: boolean, message?: string) =>
+    set({ loading: { open, message } }),
+
+  showToast: (toast: Omit<ToastMessage, 'id'> & { id?: string }) => {
+    const payload = buildToastPayload(toast);
+    set(state => ({
+      toastQueue: [...state.toastQueue.filter(item => item.id !== payload.id), payload]
+    }));
+    return payload.id;
+  },
+
+  hideToast: (id: string) =>
+    set(state => ({
+      toastQueue: state.toastQueue.filter(toast => toast.id !== id)
+    })),
+
+  pushToast: (toast: ToastOptions) => get().showToast(toast),
+  removeToast: (id: string) => get().hideToast(id),
+
+  openConfirm: (options: Omit<ConfirmModalState, 'open'>) =>
+    set({
+      confirm: {
+        ...defaultConfirm,
+        ...options,
+        open: true
+      }
+    }),
+
+  closeConfirm: () => {
+    resolvePendingConfirm(false);
+    set(state => ({
+      confirm: {
+        ...state.confirm,
+        open: false
+      }
+    }));
   },
 
   showConfirm: (options: ConfirmDialogOptions) => {
-    if (confirmResolver) {
-      confirmResolver(false);
-    }
+    resolvePendingConfirm(false);
     return new Promise<boolean>((resolve) => {
-      confirmResolver = resolve;
-      set({ confirmDialog: withDefaults(options) });
+      pendingConfirmResolver = resolve;
+      get().openConfirm({
+        title: options.title || defaultConfirm.title,
+        description: options.message,
+        confirmText: options.confirmText || defaultConfirm.confirmText,
+        cancelText: options.cancelText || defaultConfirm.cancelText,
+        danger: options.danger ?? defaultConfirm.danger,
+        onConfirm: () => {
+          resolvePendingConfirm(true);
+        },
+        onCancel: () => {
+          resolvePendingConfirm(false);
+        }
+      });
     });
   },
 
-  resolveConfirm: (result: boolean) => {
-    const resolver = confirmResolver;
-    confirmResolver = null;
-    set({ confirmDialog: null });
-    resolver?.(result);
-  },
+  openChunkView: (chunks: DocumentChunk[], activeIndex = 0) =>
+    set({
+      chunkView: {
+        open: true,
+        chunks,
+        activeIndex: Math.max(0, Math.min(activeIndex, Math.max(chunks.length - 1, 0)))
+      }
+    }),
 
-  setGlobalLoading: (loading: boolean) => set({ globalLoading: loading })
+  closeChunkView: () =>
+    set(state => ({
+      chunkView: {
+        ...state.chunkView,
+        open: false
+      }
+    })),
+
+  setActiveChunk: (index: number) =>
+    set(state => {
+      const { chunks } = state.chunkView;
+      const clampedIndex = Math.max(0, Math.min(index, Math.max(chunks.length - 1, 0)));
+      return {
+        chunkView: {
+          ...state.chunkView,
+          activeIndex: clampedIndex
+        }
+      };
+    })
 }));

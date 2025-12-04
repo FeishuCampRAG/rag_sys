@@ -84,7 +84,7 @@ export interface ChatState {
   isLoading: boolean;
   loadHistory: () => Promise<void>;
   sendMessage: (content: string, onRagEvent?: (event: string, data: any) => void) => Promise<void>;
-  clearHistory: () => Promise<void>;
+  clearHistory: () => Promise<boolean>;
 }
 
 export interface ConversationState {
@@ -160,12 +160,14 @@ export interface StepCardProps {
 export interface ChunkPreviewProps {
   chunk: DocumentChunk;
   index: number;
+  onSelect?: () => void;
 }
 
-// UI helper types
+// UI types
 export type ToastType = 'info' | 'success' | 'warning' | 'error';
 
 export interface ToastOptions {
+  id?: string;
   type?: ToastType;
   title?: string;
   message: string;
@@ -177,6 +179,22 @@ export interface ToastMessage extends ToastOptions {
   type: ToastType;
 }
 
+export interface LoadingState {
+  open: boolean;
+  message?: string;
+}
+
+export interface ConfirmModalState {
+  open: boolean;
+  title: string;
+  description?: string;
+  confirmText?: string;
+  cancelText?: string;
+  danger?: boolean;
+  onConfirm?: () => Promise<void> | void;
+  onCancel?: () => void;
+}
+
 export interface ConfirmDialogOptions {
   title?: string;
   message: string;
@@ -185,17 +203,26 @@ export interface ConfirmDialogOptions {
   danger?: boolean;
 }
 
-export interface ConfirmDialogState extends ConfirmDialogOptions {
-  id: string;
+export interface ChunkViewState {
+  open: boolean;
+  chunks: DocumentChunk[];
+  activeIndex: number;
 }
 
 export interface UIState {
-  toasts: ToastMessage[];
-  confirmDialog: ConfirmDialogState | null;
-  globalLoading: boolean;
+  loading: LoadingState;
+  toastQueue: ToastMessage[];
+  confirm: ConfirmModalState;
+  chunkView: ChunkViewState;
+  setLoading: (open: boolean, message?: string) => void;
+  showToast: (toast: Omit<ToastMessage, 'id'> & { id?: string }) => string;
+  hideToast: (id: string) => void;
   pushToast: (toast: ToastOptions) => string;
   removeToast: (id: string) => void;
+  openConfirm: (options: Omit<ConfirmModalState, 'open'>) => void;
+  closeConfirm: () => void;
   showConfirm: (options: ConfirmDialogOptions) => Promise<boolean>;
-  resolveConfirm: (result: boolean) => void;
-  setGlobalLoading: (loading: boolean) => void;
+  openChunkView: (chunks: DocumentChunk[], activeIndex?: number) => void;
+  closeChunkView: () => void;
+  setActiveChunk: (index: number) => void;
 }
