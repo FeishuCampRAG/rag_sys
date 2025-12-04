@@ -50,6 +50,10 @@ export interface DocumentChunk {
   created_at: string;
 }
 
+export type RAGProcessStep = 'embedding' | 'retrieval' | 'prompt' | 'generating' | 'done' | 'error';
+export type StepStatus = 'pending' | 'processing' | 'done' | 'error';
+export type RAGWorkStep = Exclude<RAGProcessStep, 'done' | 'error'>;
+
 export interface DocumentContent {
   content: string;
   filename?: string;
@@ -125,7 +129,8 @@ export interface DocumentState {
 }
 
 export interface RAGState {
-  currentStep: string | null;
+  currentStep: RAGProcessStep | null;
+  failedStep: RAGWorkStep | null;
   query: string;
   embeddingDone: boolean;
   embeddingDimension: number;
@@ -133,6 +138,7 @@ export interface RAGState {
   prompt: string;
   generating: boolean;
   generatedTokens: string;
+  errorMessage: string | null;
   reset: () => void;
   setQuery: (query: string) => void;
   updateStep: (event: string, data: any) => void;
@@ -161,11 +167,41 @@ export interface DocumentItemProps {
 export interface StepCardProps {
   step: number;
   title: string;
-  status: 'pending' | 'processing' | 'done';
+  status: StepStatus;
   children?: React.ReactNode;
 }
 
 export interface ChunkPreviewProps {
   chunk: DocumentChunk;
   index: number;
+}
+
+export interface QueryStepProps {
+  query: string;
+}
+
+export interface EmbeddingStepProps {
+  status: StepStatus;
+  embeddingDone: boolean;
+  dimension: number;
+  errorMessage?: string | null;
+}
+
+export interface RetrievalStepProps {
+  status: StepStatus;
+  chunks: DocumentChunk[];
+  errorMessage?: string | null;
+}
+
+export interface PromptStepProps {
+  status: StepStatus;
+  prompt: string;
+  errorMessage?: string | null;
+}
+
+export interface GeneratingStepProps {
+  status: StepStatus;
+  generating: boolean;
+  tokens: string;
+  errorMessage?: string | null;
 }

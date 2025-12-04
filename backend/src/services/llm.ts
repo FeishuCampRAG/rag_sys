@@ -15,7 +15,39 @@ interface ChatCompletionResponse {
   }>;
 }
 
-export async function* streamChat(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
+interface ResponsesRequest {
+  model: string;
+  input: Array<{ role: ChatMessage['role']; content: string }>;
+  stream: boolean;
+}
+
+interface ResponsesStreamEvent {
+  type?: string;
+  delta?: string;
+}
+
+const RESPONSES_ONLY_MODEL_PATTERNS = [
+  /^gpt-4\.1/i,
+  /^gpt-5/i,
+  /^o[1-9]/i,
+  /^omni/i
+];
+
+function shouldUseResponsesEndpoint(model: string): boolean {
+  return RESPONSES_ONLY_MODEL_PATTERNS.some((regex) => regex.test(model));
+}
+
+function isResponsesOnlyError(error: unknown): boolean {
+  if (error instanceof Error) {
+    return error.message.includes('only supported in v1/responses');
+  }
+  if (typeof error === 'string') {
+    return error.includes('only supported in v1/responses');
+  }
+  return false;
+}
+
+async function* streamWithChatCompletions(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
   const response = await fetch(`${config.openaiBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -66,6 +98,112 @@ export async function* streamChat(messages: ChatMessage[]): AsyncGenerator<strin
           // ignore parse errors
         }
       }
+    }
+  }
+}
+
+async function* streamWithResponses(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
+  const response = await fetch(`${config.openaiBaseUrl}/responses`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.openaiApiKey}`
+    },
+    body: JSON.stringify({
+      model: config.chatModel,
+      input: messages.map((message) => ({
+        role: message.role,
+        content: message.content
+      })),
+      stream: true
+    } as ResponsesRequest)
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`LLM API error: ${error}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Response body is not readable');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let eventDataParts: string[] = [];
+
+  const flushEvent = (): ResponsesStreamEvent | 'DONE' | null => {
+    if (!eventDataParts.length) {
+      return null;
+    }
+    const dataString = eventDataParts.join('\n').trim();
+    eventDataParts = [];
+    if (!dataString) {
+      return null;
+    }
+    if (dataString === '[DONE]') {
+      return 'DONE';
+    }
+    try {
+      return JSON.parse(dataString) as ResponsesStreamEvent;
+    } catch {
+      return null;
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.startsWith('data:')) {
+        eventDataParts.push(line.slice(5).trimStart());
+      } else if (line.trim() === '') {
+        const event = flushEvent();
+        if (!event) {
+          continue;
+        }
+        if (event === 'DONE') {
+          return;
+        }
+        const eventType = event.type ?? '';
+        if (eventType === 'response.output_text.delta' && typeof event.delta === 'string') {
+          yield event.delta;
+        } else if (eventType === 'response.completed') {
+          return;
+        }
+      }
+    }
+  }
+
+  const finalEvent = flushEvent();
+  if (finalEvent === 'DONE') {
+    return;
+  }
+  if (finalEvent?.type === 'response.output_text.delta' && typeof finalEvent.delta === 'string') {
+    yield finalEvent.delta;
+  }
+}
+
+export async function* streamChat(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
+  if (shouldUseResponsesEndpoint(config.chatModel)) {
+    yield* streamWithResponses(messages);
+    return;
+  }
+
+  try {
+    yield* streamWithChatCompletions(messages);
+  } catch (error) {
+    if (isResponsesOnlyError(error)) {
+      yield* streamWithResponses(messages);
+    } else {
+      throw error;
     }
   }
 }
