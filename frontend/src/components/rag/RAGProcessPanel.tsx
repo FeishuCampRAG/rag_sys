@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRagStore } from '../../stores/ragStore';
+import { useUIStore } from '../../stores/uiStore';
 import StepCard from './StepCard';
 import ChunkPreview from './ChunkPreview';
+import Button from '../common/Button';
 
 interface RAGProcessPanelProps {
   className?: string;
@@ -20,6 +22,7 @@ export default function RAGProcessPanel({ className = '', style }: RAGProcessPan
     generating,
     generatedTokens
   } = useRagStore();
+  const openChunkView = useUIStore(state => state.openChunkView);
 
   const [showPrompt, setShowPrompt] = useState(false);
 
@@ -72,8 +75,22 @@ export default function RAGProcessPanel({ className = '', style }: RAGProcessPan
               {retrievedChunks.length > 0 && (
                 <div className="mt-2 space-y-2">
                   {retrievedChunks.map((chunk, index) => (
-                    <ChunkPreview key={chunk.id} chunk={chunk} index={index} />
+                    <ChunkPreview
+                      key={chunk.id}
+                      chunk={chunk}
+                      index={index}
+                      onSelect={() => openChunkView(retrievedChunks, index)}
+                    />
                   ))}
+                  <div className="pt-1 text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openChunkView(retrievedChunks)}
+                    >
+                      查看全部 Chunks
+                    </Button>
+                  </div>
                 </div>
               )}
             </StepCard>

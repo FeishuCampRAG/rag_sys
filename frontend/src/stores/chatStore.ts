@@ -171,12 +171,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   clearHistory: async () => {
-    const convStore = useConversationStore.getState();
-    const convId = await convStore.ensureActiveConversation();
-    const result = await api.clearChatHistory(convId);
-    if (result.success) {
-      set({ messages: [] });
-      convStore.updateMessages(convId, []);
+    try {
+      const convStore = useConversationStore.getState();
+      const convId = await convStore.ensureActiveConversation();
+      if (!convId) return false;
+      const result = await api.clearChatHistory(convId);
+      if (result.success) {
+        set({ messages: [] });
+        convStore.updateMessages(convId, []);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      logError('clearHistory', parseError(error));
+      return false;
     }
   }
 }));

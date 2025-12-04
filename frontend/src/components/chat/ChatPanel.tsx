@@ -12,8 +12,6 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ className = '', style }: ChatPanelProps) {
   const loadHistory = useChatStore(state => state.loadHistory);
-  const clearHistory = useChatStore(state => state.clearHistory);
-  const isLoading = useChatStore(state => state.isLoading);
   const initConversations = useConversationStore(state => state.init);
   const activeConversationId = useConversationStore(state => state.activeId);
 
@@ -41,13 +39,6 @@ export default function ChatPanel({ className = '', style }: ChatPanelProps) {
             <div className="mt-1 text-xs font-normal text-gray-400">Chat Module · RAG 助手</div>
           </div>
         </div>
-        <button
-          onClick={() => clearHistory()}
-          disabled={isLoading}
-          className="rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-700 disabled:opacity-50"
-        >
-          清空记录
-        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">

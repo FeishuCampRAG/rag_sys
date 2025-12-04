@@ -84,7 +84,7 @@ export interface ChatState {
   isLoading: boolean;
   loadHistory: () => Promise<void>;
   sendMessage: (content: string, onRagEvent?: (event: string, data: any) => void) => Promise<void>;
-  clearHistory: () => Promise<void>;
+  clearHistory: () => Promise<boolean>;
 }
 
 export interface ConversationState {
@@ -159,4 +159,52 @@ export interface StepCardProps {
 export interface ChunkPreviewProps {
   chunk: DocumentChunk;
   index: number;
+  onSelect?: () => void;
+}
+
+// UI types
+export type ToastType = 'success' | 'info' | 'error' | 'warning';
+
+export interface ToastMessage {
+  id: string;
+  type: ToastType;
+  message: string;
+  title?: string;
+  duration?: number;
+}
+
+export interface LoadingState {
+  open: boolean;
+  message?: string;
+}
+
+export interface ConfirmModalState {
+  open: boolean;
+  title: string;
+  description?: string;
+  confirmText?: string;
+  cancelText?: string;
+  danger?: boolean;
+  onConfirm?: () => Promise<void> | void;
+}
+
+export interface ChunkViewState {
+  open: boolean;
+  chunks: DocumentChunk[];
+  activeIndex: number;
+}
+
+export interface UIState {
+  loading: LoadingState;
+  toastQueue: ToastMessage[];
+  confirm: ConfirmModalState;
+  chunkView: ChunkViewState;
+  setLoading: (open: boolean, message?: string) => void;
+  showToast: (toast: Omit<ToastMessage, 'id'> & { id?: string }) => string;
+  hideToast: (id: string) => void;
+  openConfirm: (options: Omit<ConfirmModalState, 'open'>) => void;
+  closeConfirm: () => void;
+  openChunkView: (chunks: DocumentChunk[], activeIndex?: number) => void;
+  closeChunkView: () => void;
+  setActiveChunk: (index: number) => void;
 }
