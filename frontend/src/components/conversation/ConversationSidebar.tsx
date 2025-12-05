@@ -5,10 +5,20 @@ import { useChatStore } from '../../stores/chatStore';
 import { useConfirm } from '../../hooks/useConfirm';
 import { useToast } from '../../hooks/useToast';
 
+const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false
+});
+
 const formatTime = (value: string) => {
+  if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('zh-CN', { hour12: false });
+  return timeFormatter.format(date).replace(/\//g, '/');
 };
 
 interface ConversationSidebarProps {
@@ -17,18 +27,25 @@ interface ConversationSidebarProps {
 }
 
 export default function ConversationSidebar({ className = '', style }: ConversationSidebarProps) {
-  const { conversations, activeId, init, createConversation, selectConversation, deleteConversation } = useConversationStore();
+  const {
+    conversations,
+    activeId,
+    init,
+    createConversation,
+    selectConversation,
+    deleteConversation
+  } = useConversationStore();
   const loadHistory = useChatStore(state => state.loadHistory);
   const confirm = useConfirm();
   const toast = useToast();
 
   useEffect(() => {
-    init();
+    void init();
   }, [init]);
 
   useEffect(() => {
     if (!activeId) return;
-    loadHistory();
+    void loadHistory();
   }, [activeId, loadHistory]);
 
   return (
@@ -55,9 +72,13 @@ export default function ConversationSidebar({ className = '', style }: Conversat
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
         {conversations.map(conv => {
           const isActive = conv.id === activeId;
-          const messageCount = conv.messages
-            ? conv.messages.length
-            : (typeof conv.message_count === 'number' ? conv.message_count : 0);
+          const cachedLength = Array.isArray(conv.messages) ? conv.messages.length : 0;
+          const messageCount = cachedLength > 0
+            ? cachedLength
+            : typeof conv.message_count === 'number'
+              ? conv.message_count
+              : Number(conv.message_count ?? 0);
+
           return (
             <div
               key={conv.id}
@@ -70,12 +91,13 @@ export default function ConversationSidebar({ className = '', style }: Conversat
             >
               <button
                 className="absolute right-2 top-2 rounded-md p-1 text-gray-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                onClick={async (e) => {
-                  e.stopPropagation();
+                onClick={async (event) => {
+                  event.stopPropagation();
                   const shouldDelete = await confirm({
                     title: '删除对话',
-                    message: '确认删除该对话吗？该操作无法恢复。',
+                    message: '确定删除该对话吗？该操作无法恢复。',
                     confirmText: '删除',
+                    cancelText: '取消',
                     danger: true
                   });
                   if (!shouldDelete) return;

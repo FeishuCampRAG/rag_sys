@@ -1,6 +1,6 @@
 import { MouseEvent } from 'react';
 import { useDocumentStore } from '../../stores/documentStore';
-import { Document } from '../../types';
+import type { Document } from '../../types';
 import { useConfirm } from '../../hooks/useConfirm';
 import { useToast } from '../../hooks/useToast';
 
@@ -14,12 +14,13 @@ export default function DocumentItem({ document }: DocumentItemProps) {
   const confirm = useConfirm();
   const toast = useToast();
 
-  const handleDelete = async (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
+  const handleDelete = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     const confirmed = await confirm({
       title: '删除文档',
       message: `确认删除 “${document.original_name}” 吗？该操作不可撤销。`,
       confirmText: '删除',
+      cancelText: '取消',
       danger: true
     });
     if (!confirmed) return;
@@ -44,7 +45,7 @@ export default function DocumentItem({ document }: DocumentItemProps) {
     processing: { text: '处理中', color: 'text-yellow-600' },
     ready: { text: '已就绪', color: 'text-green-600' },
     error: { text: '失败', color: 'text-red-600' }
-  };
+  } as const;
 
   const status = statusConfig[document.status] || statusConfig.processing;
 
@@ -60,7 +61,7 @@ export default function DocumentItem({ document }: DocumentItemProps) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <span className="truncate text-sm font-medium text-gray-800">

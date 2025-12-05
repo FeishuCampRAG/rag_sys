@@ -6,6 +6,7 @@ import ChatPanel from './components/chat/ChatPanel';
 import RAGProcessPanel from './components/rag/RAGProcessPanel';
 import ChunkViewModal from './components/modals/ChunkViewModal';
 import ConfirmModal from './components/modals/ConfirmModal';
+import LoadingOverlay from './components/common/Loading';
 import ToastContainer from './components/common/Toast';
 
 type MobileSection = 'conversations' | 'chat' | 'process';
@@ -84,6 +85,7 @@ export default function App() {
       <ChunkViewModal />
       <ConfirmModal />
       <ToastContainer />
+      <LoadingOverlay />
     </div>
   );
 }

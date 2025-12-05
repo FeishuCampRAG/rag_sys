@@ -10,7 +10,7 @@ export interface LoadingIndicatorProps {
 export function LoadingIndicator({ label = '加载中', fullscreen = false, className = '' }: LoadingIndicatorProps) {
   const content = (
     <div className={`flex items-center justify-center gap-2 text-sm text-gray-600 ${className}`.trim()}>
-      <svg className="h-5 w-5 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+      <svg className="h-5 w-5 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path
           className="opacity-75"
@@ -47,7 +47,7 @@ export default function LoadingOverlay() {
         {message ? (
           <p className="text-sm font-medium text-gray-700">{message}</p>
         ) : (
-          <p className="text-sm text-gray-500">处理中，请稍候...</p>
+          <p className="text-sm text-gray-500">处理中，请稍等...</p>
         )}
       </div>
     </div>,

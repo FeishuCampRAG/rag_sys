@@ -22,19 +22,25 @@ export default function ChatPanel({ className = '', style }: ChatPanelProps) {
   const setLoading = useUIStore(state => state.setLoading);
   const showToast = useUIStore(state => state.showToast);
 
+  const hasActiveConversation = Boolean(activeConversationId);
+
   useEffect(() => {
-    initConversations();
+    void initConversations();
   }, [initConversations]);
 
   useEffect(() => {
-    if (!activeConversationId) return;
-    loadHistory();
+    if (!activeConversationId) {
+      useChatStore.setState({ messages: [] });
+      return;
+    }
+    void loadHistory();
   }, [activeConversationId, loadHistory]);
 
   const handleClearConversation = () => {
+    if (!activeConversationId) return;
     openConfirm({
       title: '清空当前对话？',
-      description: '该操作会删除当前会话的全部聊天记录且无法恢复，请谨慎操作。',
+      description: '该操作会删除当前会话中的全部聊天记录且无法恢复，请谨慎操作。',
       confirmText: '立即清空',
       cancelText: '暂不',
       danger: true,
@@ -60,7 +66,10 @@ export default function ChatPanel({ className = '', style }: ChatPanelProps) {
     >
       <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-white via-white to-blue-50/40 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3 text-gray-800">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-xl leading-none text-blue-600">
+          <span
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-xl leading-none text-blue-600"
+            aria-hidden="true"
+          >
             💬
           </span>
           <div className="font-semibold">
@@ -69,19 +78,30 @@ export default function ChatPanel({ className = '', style }: ChatPanelProps) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {isLoading && (
+          {isLoading && hasActiveConversation && (
             <div className="rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-400">
               AI 正在思考...
             </div>
           )}
-          <Button variant="ghost" size="sm" onClick={handleClearConversation}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearConversation}
+            disabled={!hasActiveConversation}
+          >
             清空对话
           </Button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <MessageList />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {hasActiveConversation ? (
+          <MessageList />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-white px-4 text-center text-sm text-gray-400">
+            你好，让我开始聊天吧！
+          </div>
+        )}
       </div>
 
       <InputArea />

@@ -1,7 +1,7 @@
 import StepCard from './StepCard';
 import ChunkPreview from './ChunkPreview';
 import Button from '../common/Button';
-import { RetrievalStepProps } from '../../types';
+import type { RetrievalStepProps } from '../../types';
 
 export default function RetrievalStep({
   status,
@@ -10,25 +10,24 @@ export default function RetrievalStep({
   onSelectChunk,
   onViewAllChunks
 }: RetrievalStepProps) {
-  const displayStatus = status;
   const hasChunks = chunks.length > 0;
 
   return (
     <StepCard
       step={3}
       title={`检索结果${hasChunks ? ` (Top ${chunks.length})` : ''}`}
-      status={displayStatus}
+      status={status}
     >
-      {displayStatus === 'pending' && (
+      {status === 'pending' && (
         <p className="mt-2 text-xs text-gray-400">等待向量检索开始。</p>
       )}
-      {displayStatus === 'processing' && (
+      {status === 'processing' && (
         <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
           <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-current" />
-          检索 Top-K 相关内容中…
+          检索中，正在匹配最相似的内容...
         </div>
       )}
-      {displayStatus === 'done' && (
+      {status === 'done' && (
         <div className="mt-2 space-y-2">
           {hasChunks ? (
             <>
@@ -43,7 +42,7 @@ export default function RetrievalStep({
               {onViewAllChunks && (
                 <div className="pt-1 text-right">
                   <Button variant="outline" size="sm" onClick={onViewAllChunks}>
-                    查看全部 Chunks
+                    查看全部片段
                   </Button>
                 </div>
               )}
@@ -53,7 +52,7 @@ export default function RetrievalStep({
           )}
         </div>
       )}
-      {displayStatus === 'error' && (
+      {status === 'error' && (
         <p className="mt-2 text-xs text-red-600">
           {errorMessage || '检索阶段失败，请检查向量索引服务。'}
         </p>

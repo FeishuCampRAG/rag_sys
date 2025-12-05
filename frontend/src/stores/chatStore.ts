@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ChatReference, ChatState, Message } from '../types';
+import type { ChatReference, ChatState, Message } from '../types';
 import { useConversationStore } from './conversationStore';
 import { api } from '../services/api';
 import { parseError, logError, createUserMessage } from '../utils/errorHandler';
@@ -29,7 +29,7 @@ const upsertAssistantMessage = (
   set(state => {
     nextMessages = [...state.messages];
     const existingIndex = nextMessages.findIndex(msg => msg.id === id);
-    const created_at = existingIndex >= 0
+    const createdAt = existingIndex >= 0
       ? nextMessages[existingIndex].created_at
       : new Date().toISOString();
 
@@ -38,7 +38,7 @@ const upsertAssistantMessage = (
       id,
       role: 'assistant',
       content,
-      created_at,
+      created_at: createdAt,
       streaming,
       references
     };
@@ -62,6 +62,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadHistory: async () => {
     const convStore = useConversationStore.getState();
     const convId = await convStore.ensureActiveConversation();
+    if (!convId) {
+      set({ messages: [] });
+      return;
+    }
     const history = await convStore.getConversationMessages(convId);
     set({ messages: history || [] });
   },
@@ -69,6 +73,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sendMessage: async (content: string, onRagEvent?: (event: string, data: any) => void) => {
     const convStore = useConversationStore.getState();
     const conversationId = await convStore.ensureActiveConversation();
+    if (!conversationId) {
+      return;
+    }
     const syncConversation = (messages: Message[]) => convStore.updateMessages(conversationId, messages);
     set({ isLoading: true });
 
@@ -95,9 +102,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       await api.sendMessage(content, conversationId, (event, data) => {
         if (event === 'step' && data?.step === 'retrieval' && data.status === 'done') {
           references = (data.chunks || []).map((chunk: any, index: number) => ({
-            id: chunk.id || `${assistantId}-ref-${index}`,
+            id: chunk.id || `${assistantId}-ref-${index + 1}`,
             document_name: chunk.document_name || '未命名文档',
-            similarity: chunk.similarity,
+            similarity: typeof chunk.similarity === 'number' ? chunk.similarity : undefined,
             content: chunk.content,
             index: index + 1
           }));
@@ -107,13 +114,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
           upsertAssistantMessage(set, assistantId, streamedText, true, references, syncConversation);
         }
 
-        if (event === 'token') {
+        if (event === 'token' && typeof data?.token === 'string') {
           streamedText += data.token;
           upsertAssistantMessage(set, assistantId, streamedText, true, references, syncConversation);
         }
 
         if (event === 'done') {
-          const finalContent = data.fullResponse || streamedText;
+          const finalContent = typeof data?.fullResponse === 'string' && data.fullResponse.length > 0
+            ? data.fullResponse
+            : streamedText;
           upsertAssistantMessage(set, assistantId, finalContent, false, references, syncConversation);
         }
 
@@ -121,7 +130,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           upsertAssistantMessage(
             set,
             assistantId,
-            data.error || data.message || '生成失败，请稍后重试。',
+            data?.error || data?.message || '生成失败，请稍后重试。',
             false,
             references,
             syncConversation
@@ -133,39 +142,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       });
     } catch (error) {
-      // Parse and categorize the error
       const errorInfo = parseError(error);
-      
-      // Log detailed error information for debugging
       logError('sendMessage', errorInfo);
-      
-      // Create user-friendly error message
-      const userMessage = createUserMessage(errorInfo);
-      
-      // Create error message with proper error state
+      const userFriendly = createUserMessage(errorInfo);
+
       upsertAssistantMessage(
         set,
         assistantId,
-        userMessage,
+        userFriendly,
         false,
         references,
         syncConversation
       );
-      
-      // Mark the message as having an error for UI styling
+
       set(state => {
         const messages = [...state.messages];
-        const errorIndex = messages.findIndex(msg => msg.id === assistantId);
-        if (errorIndex >= 0) {
-          messages[errorIndex] = {
-            ...messages[errorIndex],
-            error: true
-          };
+        const idx = messages.findIndex(msg => msg.id === assistantId);
+        if (idx >= 0) {
+          messages[idx] = { ...messages[idx], error: true };
         }
         return { messages };
       });
     } finally {
-      // Ensure loading state is always reset
       set({ isLoading: false });
     }
   },

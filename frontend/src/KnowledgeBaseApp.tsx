@@ -2,12 +2,13 @@ import { useEffect } from 'react';
 import Header from './components/layout/Header';
 import UploadButton from './components/sidebar/UploadButton';
 import UploadArea from './components/sidebar/UploadArea';
-import UploadProgress from './components/sidebar/UploadProgress';
 import DocumentList from './components/sidebar/DocumentList';
 import { useDocumentStore } from './stores/documentStore';
 import ChunkViewModal from './components/modals/ChunkViewModal';
 import ConfirmModal from './components/modals/ConfirmModal';
+import LoadingOverlay from './components/common/Loading';
 import ToastContainer from './components/common/Toast';
+import UploadProgressModal from './components/modals/UploadProgressModal';
 
 export default function KnowledgeBaseApp() {
   const fetchDocuments = useDocumentStore(state => state.fetchDocuments);
@@ -33,11 +34,12 @@ export default function KnowledgeBaseApp() {
             </div>
 
             <UploadArea />
-            <UploadProgress />
 
             <div className="mt-6 border-t border-gray-100 pt-4">
               <div className="rounded-lg border border-gray-200 bg-white p-3">
-                <DocumentList />
+                <div className="max-h-[420px] min-h-[200px] overflow-y-auto pr-1">
+                  <DocumentList />
+                </div>
               </div>
             </div>
           </div>
@@ -46,7 +48,9 @@ export default function KnowledgeBaseApp() {
 
       <ChunkViewModal />
       <ConfirmModal />
+      <UploadProgressModal />
       <ToastContainer />
+      <LoadingOverlay />
     </div>
   );
 }

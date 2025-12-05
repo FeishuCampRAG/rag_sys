@@ -253,24 +253,26 @@ export const dbHelpers = {
     `).run(msg.id, msg.conversation_id, msg.role, msg.content, msg.created_at);
 
     if (msg.references && msg.references.length > 0) {
+      db.prepare('DELETE FROM message_references WHERE message_id = ?').run(msg.id);
       const insertReference = db.prepare(`
         INSERT INTO message_references (id, message_id, ref_index, chunk_id, document_name, content, similarity)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
 
       const insertMany = db.transaction((references: ChatReference[]) => {
-        for (const ref of references) {
-          const storedId = `${msg.id}-ref-${ref.index}`;
+        references.forEach((ref, idx) => {
+          const storedIndex = Number.isFinite(ref.index) ? Number(ref.index) : idx + 1;
+          const storedId = `${msg.id}-ref-${storedIndex}-${idx}`;
           insertReference.run(
             storedId,
             msg.id,
-            ref.index,
+            storedIndex,
             ref.chunk_id ?? null,
             ref.document_name,
             ref.content ?? null,
             typeof ref.similarity === 'number' ? ref.similarity : null
           );
-        }
+        });
       });
 
       insertMany(msg.references);

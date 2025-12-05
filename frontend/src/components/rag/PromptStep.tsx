@@ -1,37 +1,36 @@
 import { useEffect, useState } from 'react';
 import StepCard from './StepCard';
-import { PromptStepProps } from '../../types';
+import type { PromptStepProps } from '../../types';
 
 export default function PromptStep({ status, prompt, errorMessage }: PromptStepProps) {
-  const displayStatus = status;
   const trimmed = prompt.trim();
   const hasPrompt = trimmed.length > 0;
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    if (displayStatus !== 'done') {
+    if (status !== 'done') {
       setExpanded(false);
     }
-  }, [displayStatus]);
+  }, [status]);
 
   return (
     <StepCard
       step={4}
       title="Prompt 预览"
-      status={displayStatus}
+      status={status}
     >
-      {displayStatus === 'pending' && (
+      {status === 'pending' && (
         <p className="mt-2 text-xs text-gray-400">
-          等待拼装提示词。
+          等待组装提示词。
         </p>
       )}
-      {displayStatus === 'processing' && (
+      {status === 'processing' && (
         <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
           <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-current" />
-          Prompt 生成中…
+          Prompt 生成中...
         </div>
       )}
-      {displayStatus === 'done' && (
+      {status === 'done' && (
         hasPrompt ? (
           <div className="mt-2">
             <button
@@ -45,6 +44,7 @@ export default function PromptStep({ status, prompt, errorMessage }: PromptStepP
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
@@ -59,9 +59,9 @@ export default function PromptStep({ status, prompt, errorMessage }: PromptStepP
           <p className="mt-2 text-xs text-gray-500">当前没有可展示的 Prompt 内容。</p>
         )
       )}
-      {displayStatus === 'error' && (
+      {status === 'error' && (
         <p className="mt-2 text-xs text-red-600">
-          {errorMessage || 'Prompt 拼装失败，请检查模板配置。'}
+          {errorMessage || 'Prompt 组装失败，请检查模板配置。'}
         </p>
       )}
     </StepCard>

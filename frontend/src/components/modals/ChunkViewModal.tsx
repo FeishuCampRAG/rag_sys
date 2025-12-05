@@ -7,7 +7,13 @@ import { useUIStore } from '../../stores/uiStore';
 
 export default function ChunkViewModal() {
   const [mounted, setMounted] = useState(false);
-  const { selectedDocId, selectedDocChunks, documents, chunksLoading, selectDocument } = useDocumentStore();
+  const {
+    selectedDocId,
+    selectedDocChunks,
+    documents,
+    chunksLoading,
+    selectDocument
+  } = useDocumentStore();
   const chunkView = useUIStore(state => state.chunkView);
   const closeChunkView = useUIStore(state => state.closeChunkView);
   const setActiveChunk = useUIStore(state => state.setActiveChunk);
@@ -69,6 +75,7 @@ export default function ChunkViewModal() {
     const closeModal = () => {
       void selectDocument(null);
     };
+
     const statusText =
       selectedDocument?.status === 'ready'
         ? '已就绪'
@@ -81,7 +88,7 @@ export default function ChunkViewModal() {
         <div className="relative w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
             <div>
-              <p className="text-sm font-semibold text-gray-500">Chunks 查看</p>
+              <p className="text-sm font-semibold text-gray-500">Chunk 列表</p>
               <h3 className="mt-1 text-lg font-semibold text-gray-800">
                 {selectedDocument?.original_name || '未命名文档'}
               </h3>
@@ -173,12 +180,14 @@ export default function ChunkViewModal() {
           <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
             <div>
               <p className="text-sm font-semibold text-gray-900">{activeChunk.document_name}</p>
-              <p className="text-xs text-gray-500">
-                Chunk #{activeIndex + 1} · 相似度 {(activeChunk.similarity * 100).toFixed(2)}%
-              </p>
+              {!!activeChunk && typeof activeChunk.similarity === 'number' && (
+                <p className="text-xs text-gray-500">
+                  Chunk #{activeIndex + 1} · 相似度 {(activeChunk.similarity * 100).toFixed(2)}%
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
-              {activeChunk.content && (
+              {activeChunk?.content && (
                 <Button variant="ghost" size="sm" onClick={handleCopyActive}>
                   复制内容
                 </Button>
@@ -191,9 +200,9 @@ export default function ChunkViewModal() {
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4 text-sm leading-relaxed text-gray-700 shadow-inner">
-              <pre className="whitespace-pre-wrap break-words font-sans text-sm">{activeChunk.content}</pre>
+              <pre className="whitespace-pre-wrap break-words font-sans text-sm">{activeChunk?.content}</pre>
             </div>
-            {activeChunk.metadata && (
+            {activeChunk?.metadata && (
               <div className="mt-4 rounded-lg border border-gray-100 bg-white p-4 text-xs text-gray-500">
                 <div className="mb-2 text-xs font-semibold text-gray-600">Metadata</div>
                 <pre className="whitespace-pre-wrap break-words">

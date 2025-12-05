@@ -17,12 +17,12 @@ const iconMap: Record<ToastType, string> = {
   warning: '⚠️'
 };
 
-const DEFAULT_DURATION = 3200;
+const DEFAULT_DURATION = 4000;
 
 function ToastItem({ toast, onClose }: { toast: ToastMessage; onClose: (id: string) => void }) {
   return (
     <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 shadow-md transition ${styleMap[toast.type]}`}>
-      <span className="text-lg leading-none">{iconMap[toast.type]}</span>
+      <span className="text-lg leading-none" aria-hidden="true">{iconMap[toast.type]}</span>
       <div className="flex-1 text-sm">
         {toast.title && <div className="font-semibold">{toast.title}</div>}
         <div>{toast.message}</div>

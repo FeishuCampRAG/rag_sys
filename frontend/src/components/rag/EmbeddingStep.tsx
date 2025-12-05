@@ -1,5 +1,5 @@
 import StepCard from './StepCard';
-import { EmbeddingStepProps } from '../../types';
+import type { EmbeddingStepProps } from '../../types';
 
 export default function EmbeddingStep({ status, embeddingDone, dimension, errorMessage }: EmbeddingStepProps) {
   const displayStatus = status;
@@ -18,12 +18,12 @@ export default function EmbeddingStep({ status, embeddingDone, dimension, errorM
       {displayStatus === 'processing' && (
         <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
           <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-current" />
-          向量化处理中…
+          向量化处理中...
         </div>
       )}
       {displayStatus === 'done' && embeddingDone && (
         <div className="mt-2 text-xs text-gray-600">
-          已完成 · 向量维度：{dimension}
+          向量化完成 · 维度：{dimension}
         </div>
       )}
       {displayStatus === 'error' && (

@@ -10,7 +10,7 @@ const fallbackConversation = (): Conversation => {
     summary: '新的对话',
     created_at: now,
     updated_at: now,
-    messages: [],
+    messages: undefined,
     message_count: 0
   };
 };
@@ -25,13 +25,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     if (get().initialized || get().initializing) return;
     set({ initializing: true });
     try {
-      const list = await get().fetchConversations();
-      if (list.length === 0) {
-        const id = await get().createConversation();
-        set({ activeId: id });
-      } else {
-        set(state => ({ ...state, activeId: state.activeId || list[0]?.id || null }));
-      }
+      await get().fetchConversations();
       set({ initialized: true });
     } finally {
       set({ initializing: false });
@@ -49,12 +43,12 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     if (result.success && result.data) {
       const conversations = result.data.map(conv => {
         const cachedMessages = existingMessages.get(conv.id);
-        const derivedCount = cachedMessages
+        const derivedCount = cachedMessages && cachedMessages.length > 0
           ? cachedMessages.length
           : (typeof conv.message_count === 'number' ? conv.message_count : existingCounts.get(conv.id));
         return {
           ...conv,
-          messages: cachedMessages,
+          messages: cachedMessages && cachedMessages.length > 0 ? cachedMessages : undefined,
           message_count: derivedCount ?? 0
         };
       });
@@ -63,7 +57,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         const activeExists = state.activeId && conversations.some(conv => conv.id === state.activeId);
         return {
           conversations,
-          activeId: activeExists ? state.activeId : conversations[0]?.id || null
+          activeId: activeExists ? state.activeId : conversations[0]?.id ?? null
         };
       });
       return conversations;
@@ -76,19 +70,13 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       await get().fetchConversations();
     }
     const current = get();
-    if (current.activeId) return current.activeId;
-    if (current.conversations.length > 0) {
-      const id = current.conversations[0].id;
-      set({ activeId: id });
-      return id;
-    }
-    return get().createConversation();
+    return current.activeId ?? null;
   },
 
   createConversation: async () => {
     const result = await api.createConversation();
     if (result.success && result.data) {
-      const conv = { ...result.data, messages: [], message_count: 0 };
+      const conv = { ...result.data, messages: undefined, message_count: 0 };
       set(state => ({ conversations: [conv, ...state.conversations], activeId: conv.id }));
       return conv.id;
     }
@@ -166,14 +154,8 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     await api.deleteConversation(id);
     set(state => {
       const remaining = state.conversations.filter(conv => conv.id !== id);
-      const activeId = state.activeId === id ? (remaining[0]?.id || null) : state.activeId;
+      const activeId = state.activeId === id ? (remaining[0]?.id ?? null) : state.activeId;
       return { conversations: remaining, activeId };
     });
-
-    const updated = get();
-    if (!updated.activeId) {
-      const newId = await get().createConversation();
-      set({ activeId: newId });
-    }
   }
 }));

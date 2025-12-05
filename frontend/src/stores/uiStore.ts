@@ -52,6 +52,13 @@ export const useUIStore = create<UIState>((set, get) => ({
     chunks: [],
     activeIndex: 0
   },
+  uploadProgress: {
+    open: false,
+    completed: false,
+    result: null,
+    documentName: null,
+    currentStep: 0
+  },
 
   setLoading: (open: boolean, message?: string) =>
     set({ loading: { open, message } }),
@@ -138,6 +145,47 @@ export const useUIStore = create<UIState>((set, get) => ({
           activeIndex: clampedIndex
         }
       };
+    }),
+
+  openUploadProgress: (documentName) =>
+    set({
+      uploadProgress: {
+        open: true,
+        completed: false,
+        result: null,
+        documentName: documentName ?? null,
+        currentStep: 0
+      }
+    }),
+
+  setUploadProgressStep: (step: number) =>
+    set(state => ({
+      uploadProgress: {
+        ...state.uploadProgress,
+        currentStep: Math.max(state.uploadProgress.currentStep, step)
+      }
+    })),
+
+  completeUploadProgress: (result, documentName) =>
+    set(state => ({
+      uploadProgress: {
+        open: true,
+        completed: true,
+        result,
+        documentName: documentName ?? state.uploadProgress.documentName,
+        currentStep: 4
+      }
+    })),
+
+  closeUploadProgress: () =>
+    set({
+      uploadProgress: {
+        open: false,
+        completed: false,
+        result: null,
+        documentName: null,
+        currentStep: 0
+      }
     })
 }));
 

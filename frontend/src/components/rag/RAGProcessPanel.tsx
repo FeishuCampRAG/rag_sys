@@ -76,48 +76,46 @@ export default function RAGProcessPanel({ className = '', style }: RAGProcessPan
   return (
     <div
       style={style}
-      className={`flex w-full flex-1 min-h-0 flex-col border-t border-gray-200 bg-gray-50 overflow-hidden lg:h-full lg:w-80 lg:min-w-[280px] lg:flex-none lg:border-t-0 lg:border-l lg:shadow-sm ${className}`.trim()}
+      className={`flex w-full flex-1 min-h-0 flex-col overflow-hidden border-t border-gray-200 bg-gray-50 lg:h-full lg:w-80 lg:min-w-[280px] lg:flex-none lg:border-t-0 lg:border-l lg:shadow-sm ${className}`.trim()}
     >
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-600">
+        <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        RAG 检索流程
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="flex flex-col gap-4 p-4 sm:p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-600">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            RAG 检索流程
-          </h2>
+          <QueryStep query={query} />
 
-          <div className="space-y-3">
-            <QueryStep query={query} />
+          <EmbeddingStep
+            status={getEmbeddingStatus()}
+            embeddingDone={embeddingDone}
+            dimension={embeddingDimension}
+            errorMessage={getErrorMessageForStep('embedding')}
+          />
 
-            <EmbeddingStep
-              status={getEmbeddingStatus()}
-              embeddingDone={embeddingDone}
-              dimension={embeddingDimension}
-              errorMessage={getErrorMessageForStep('embedding')}
-            />
+          <RetrievalStep
+            status={getRetrievalStatus()}
+            chunks={retrievedChunks}
+            errorMessage={getErrorMessageForStep('retrieval')}
+            onSelectChunk={retrievedChunks.length ? (index) => openChunkView(retrievedChunks, index) : undefined}
+            onViewAllChunks={retrievedChunks.length ? () => openChunkView(retrievedChunks) : undefined}
+          />
 
-            <RetrievalStep
-              status={getRetrievalStatus()}
-              chunks={retrievedChunks}
-              errorMessage={getErrorMessageForStep('retrieval')}
-              onSelectChunk={retrievedChunks.length ? (index) => openChunkView(retrievedChunks, index) : undefined}
-              onViewAllChunks={retrievedChunks.length ? () => openChunkView(retrievedChunks) : undefined}
-            />
+          <PromptStep
+            status={getPromptStatus()}
+            prompt={prompt}
+            errorMessage={getErrorMessageForStep('prompt')}
+          />
 
-            <PromptStep
-              status={getPromptStatus()}
-              prompt={prompt}
-              errorMessage={getErrorMessageForStep('prompt')}
-            />
-
-            <GeneratingStep
-              status={getGeneratingStatus()}
-              generating={generating}
-              tokens={generatedTokens}
-              errorMessage={getErrorMessageForStep('generating') ?? errorMessage}
-            />
-          </div>
+          <GeneratingStep
+            status={getGeneratingStatus()}
+            generating={generating}
+            tokens={generatedTokens}
+            errorMessage={getErrorMessageForStep('generating') ?? errorMessage}
+          />
         </div>
       </div>
     </div>

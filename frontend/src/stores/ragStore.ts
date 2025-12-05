@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { RAGState, RAGProcessStep, RAGWorkStep } from '../types';
+import type { RAGState, RAGProcessStep, RAGWorkStep } from '../types';
 
 export const useRagStore = create<RAGState>((set) => ({
   currentStep: null,

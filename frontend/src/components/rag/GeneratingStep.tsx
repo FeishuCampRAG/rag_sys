@@ -1,5 +1,5 @@
 import StepCard from './StepCard';
-import { GeneratingStepProps } from '../../types';
+import type { GeneratingStepProps } from '../../types';
 
 export default function GeneratingStep({ status, generating, tokens, errorMessage }: GeneratingStepProps) {
   const hasContent = tokens.trim().length > 0;
@@ -18,7 +18,7 @@ export default function GeneratingStep({ status, generating, tokens, errorMessag
       {(status === 'processing' || generating) && (
         <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
           <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-current" />
-          模型生成中…
+          模型生成中...
         </div>
       )}
       {status === 'done' && !hasContent && (
@@ -27,7 +27,7 @@ export default function GeneratingStep({ status, generating, tokens, errorMessag
         </p>
       )}
       {status !== 'error' && hasContent && (
-        <div className="mt-2 max-h-40 overflow-y-auto rounded border border-green-100 bg-white px-3 py-2 text-xs text-gray-600">
+        <div className="mt-2 max-h-64 overflow-y-auto rounded border border-green-100 bg-white px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
           {tokens}
         </div>
       )}

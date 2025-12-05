@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useDocumentStore } from '../../stores/documentStore';
 import UploadButton from './UploadButton';
 import UploadArea from './UploadArea';
-import UploadProgress from './UploadProgress';
 import DocumentList from './DocumentList';
 
 export default function Sidebar() {
@@ -13,12 +12,11 @@ export default function Sidebar() {
   }, [fetchDocuments]);
 
   return (
-    <div className="w-64 min-w-[200px] bg-gray-50 border-r border-gray-200 flex flex-col">
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-sm font-semibold text-gray-600 mb-3">知识库管理</h2>
+    <div className="flex min-w-[200px] w-64 flex-col border-r border-gray-200 bg-gray-50">
+      <div className="border-b border-gray-200 p-4">
+        <h2 className="mb-3 text-sm font-semibold text-gray-600">知识库管理</h2>
         <UploadButton />
         <UploadArea />
-        <UploadProgress />
       </div>
       <div className="flex-1 overflow-y-auto p-4">
         <DocumentList />

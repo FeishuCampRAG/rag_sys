@@ -21,32 +21,64 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   uploadDocument: async (file: File) => {
+    const ui = useUIStore.getState();
+    ui.openUploadProgress(file.name);
+    ui.setUploadProgressStep(0);
     set({ uploading: true });
     try {
       const result = await api.uploadDocument(file);
       if (result.success && result.data) {
+        ui.setUploadProgressStep(1);
         await get().fetchDocuments();
-        get().pollDocumentStatus(result.data.id);
+        await get().pollDocumentStatus(result.data.id);
+      } else {
+        ui.completeUploadProgress('error', file.name);
       }
       return result;
+    } catch (error) {
+      ui.completeUploadProgress('error', file.name);
+      throw error;
     } finally {
       set({ uploading: false });
     }
   },
 
   pollDocumentStatus: async (docId: string) => {
-    const poll = async () => {
-      const result = await api.getDocument(docId);
-      if (result.success && result.data) {
-        const doc = result.data;
-        if (doc.status === 'ready' || doc.status === 'error') {
-          await get().fetchDocuments();
+    return new Promise<void>((resolve) => {
+      let finished = false;
+
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        resolve();
+      };
+
+      const iterate = async () => {
+        if (finished) return;
+        try {
+          const result = await api.getDocument(docId);
+          if (result.success && result.data) {
+            const doc = result.data;
+            if (doc.status === 'ready' || doc.status === 'error') {
+              await get().fetchDocuments();
+              const ui = useUIStore.getState();
+              ui.completeUploadProgress(doc.status === 'ready' ? 'success' : 'error', doc.original_name);
+              done();
+              return;
+            }
+            useUIStore.getState().setUploadProgressStep(2);
+          }
+        } catch {
+          useUIStore.getState().completeUploadProgress('error');
+          done();
           return;
         }
-        setTimeout(poll, 1000);
-      }
-    };
-    poll();
+        setTimeout(iterate, 800);
+      };
+
+      useUIStore.getState().setUploadProgressStep(2);
+      void iterate();
+    });
   },
 
   deleteDocument: async (id: string) => {

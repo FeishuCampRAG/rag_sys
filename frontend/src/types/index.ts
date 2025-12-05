@@ -104,7 +104,7 @@ export interface ConversationState {
   initialized: boolean;
   initializing: boolean;
   init: () => Promise<void>;
-  ensureActiveConversation: () => Promise<string>;
+  ensureActiveConversation: () => Promise<string | null>;
   fetchConversations: () => Promise<Conversation[]>;
   createConversation: () => Promise<string>;
   selectConversation: (id: string) => void;
@@ -257,11 +257,20 @@ export interface ChunkViewState {
   activeIndex: number;
 }
 
+export interface UploadProgressState {
+  open: boolean;
+  completed: boolean;
+  result: 'success' | 'error' | null;
+  documentName: string | null;
+  currentStep: number;
+}
+
 export interface UIState {
   loading: LoadingState;
   toastQueue: ToastMessage[];
   confirm: ConfirmModalState;
   chunkView: ChunkViewState;
+  uploadProgress: UploadProgressState;
   setLoading: (open: boolean, message?: string) => void;
   showToast: (toast: Omit<ToastMessage, 'id'> & { id?: string }) => string;
   hideToast: (id: string) => void;
@@ -273,4 +282,8 @@ export interface UIState {
   openChunkView: (chunks: DocumentChunk[], activeIndex?: number) => void;
   closeChunkView: () => void;
   setActiveChunk: (index: number) => void;
+  openUploadProgress: (documentName?: string | null) => void;
+  setUploadProgressStep: (step: number) => void;
+  completeUploadProgress: (result: 'success' | 'error', documentName?: string | null) => void;
+  closeUploadProgress: () => void;
 }

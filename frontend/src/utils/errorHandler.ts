@@ -17,19 +17,21 @@ export interface ErrorInfo {
 export function parseError(error: unknown): ErrorInfo {
   if (error instanceof Error) {
     const errorMessage = error.message.toLowerCase();
-    
-    // Network errors
-    if (errorMessage.includes('network') || errorMessage.includes('fetch') || 
-        errorMessage.includes('failed to fetch') || errorMessage.includes('connection')) {
+
+    if (
+      errorMessage.includes('network') ||
+      errorMessage.includes('fetch') ||
+      errorMessage.includes('failed to fetch') ||
+      errorMessage.includes('connection')
+    ) {
       return {
         type: 'network',
         message: error.message,
-        userMessage: '网络连接失败，请检查网络后重试。',
+        userMessage: '网络连接失败，请检查网络稍后再试。',
         originalError: error
       };
     }
-    
-    // Timeout errors
+
     if (errorMessage.includes('timeout') || errorMessage.includes('aborted')) {
       return {
         type: 'timeout',
@@ -38,10 +40,13 @@ export function parseError(error: unknown): ErrorInfo {
         originalError: error
       };
     }
-    
-    // Server errors (5xx status codes)
-    if (errorMessage.includes('500') || errorMessage.includes('502') || 
-        errorMessage.includes('503') || errorMessage.includes('504')) {
+
+    if (
+      errorMessage.includes('500') ||
+      errorMessage.includes('502') ||
+      errorMessage.includes('503') ||
+      errorMessage.includes('504')
+    ) {
       return {
         type: 'server',
         message: error.message,
@@ -49,8 +54,7 @@ export function parseError(error: unknown): ErrorInfo {
         originalError: error
       };
     }
-    
-    // Generic error with message
+
     return {
       type: 'unknown',
       message: error.message,
@@ -58,8 +62,7 @@ export function parseError(error: unknown): ErrorInfo {
       originalError: error
     };
   }
-  
-  // String errors
+
   if (typeof error === 'string') {
     return {
       type: 'unknown',
@@ -68,8 +71,7 @@ export function parseError(error: unknown): ErrorInfo {
       originalError: error
     };
   }
-  
-  // Unknown error type
+
   return {
     type: 'unknown',
     message: 'Unknown error occurred',
@@ -94,17 +96,16 @@ export function logError(context: string, errorInfo: ErrorInfo): void {
  */
 export function createUserMessage(errorInfo: ErrorInfo, includeRetry = true): string {
   const baseMessage = errorInfo.userMessage;
-  
+
   if (!includeRetry) {
     return baseMessage;
   }
-  
-  // Add retry suggestion based on error type
+
   switch (errorInfo.type) {
     case 'network':
       return `${baseMessage} 请检查网络连接后重试。`;
     case 'timeout':
-      return `${baseMessage} 请稍等片刻后重试。`;
+      return `${baseMessage} 请稍等片刻后再尝试。`;
     case 'server':
       return `${baseMessage} 服务可能正在维护，请稍后重试。`;
     default:
