@@ -1,11 +1,15 @@
-﻿import { useRef, ChangeEvent, useState } from "react";
-import { useDocumentStore } from "../../stores/documentStore";
+import { useRef, ChangeEvent, useState } from 'react';
+import { useDocumentStore } from '../../stores/documentStore';
+import { useConfirm } from '../../hooks/useConfirm';
+import { useToast } from '../../hooks/useToast';
 
 export default function UploadButton() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploading, uploadDocument, documents, deleteDocument } = useDocumentStore();
   const [error, setError] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const handleClick = () => {
     if (!uploading && !deletingAll) {
@@ -45,23 +49,29 @@ export default function UploadButton() {
     }
 
     if (emptyFiles.length > 0) {
-      setError(`以下文件内容为空或者无效：${emptyFiles.join("、")}`);
+      setError(`以下文件内容为空或者无效：${emptyFiles.join('、')}`);
     } else if (invalidTypeFiles.length > 0) {
-      setError(`以下文件类型不支持，仅支持 PDF / TXT / MD：${invalidTypeFiles.join("、")}`);
+      setError(`以下文件类型不支持，仅支持 PDF / TXT / MD：${invalidTypeFiles.join('、')}`);
     } else if (failedFiles.length > 0) {
-      setError(`以下文件上传失败，请稍后重试：${failedFiles.join("、")}`);
+      setError(`以下文件上传失败，请稍后重试：${failedFiles.join('、')}`);
     }
 
-    e.target.value = "";
+    e.target.value = '';
   };
 
   const handleDeleteAll = async () => {
     if (!documents || documents.length === 0) {
-      setError("当前没有可删除的文档");
+      setError('当前没有可删除的文档');
       return;
     }
 
-    const confirmed = confirm("确定一键删除所有已上传文档吗？此操作不可恢复。");
+    const confirmed = await confirm({
+      title: '删除全部文档',
+      message: '确定一键删除所有已上传文档吗？此操作不可恢复，请谨慎操作。',
+      confirmText: '立即删除',
+      cancelText: '暂不',
+      danger: true
+    });
     if (!confirmed) return;
 
     setError(null);
@@ -70,8 +80,18 @@ export default function UploadButton() {
       for (const doc of documents) {
         await deleteDocument(doc.id);
       }
+      toast({
+        type: 'success',
+        title: '删除成功',
+        message: '已清空上传的全部文档'
+      });
     } catch {
-      setError("删除失败，请稍后重试");
+      setError('删除失败，请稍后重试');
+      toast({
+        type: 'error',
+        title: '删除失败',
+        message: '删除过程中出现问题，请稍后再试'
+      });
     } finally {
       setDeletingAll(false);
     }
@@ -108,7 +128,7 @@ export default function UploadButton() {
         disabled={uploading || deletingAll}
         className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {deletingAll ? "正在删除所有文档..." : "删除所有上传文档"}
+        {deletingAll ? '正在删除所有文档...' : '删除所有上传文档'}
       </button>
       <input
         ref={fileInputRef}
@@ -120,11 +140,7 @@ export default function UploadButton() {
       />
       {error && (
         <div className="mt-2 flex items-start gap-1 text-xs text-red-500">
-          <svg
-            className="mt-[1px] h-3.5 w-3.5 flex-shrink-0"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
+          <svg className="mt-[1px] h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
             <path
               fillRule="evenodd"
               d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.59C19.02 16.42 18.245 18 16.773 18H3.227C1.755 18 .98 16.42 1.739 14.69l6.518-11.59zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-1-2a1 1 0 01-1-1V8a1 1 0 112 0v3a1 1 0 01-1 1z"

@@ -4,7 +4,6 @@ import UploadButton from './components/sidebar/UploadButton';
 import UploadArea from './components/sidebar/UploadArea';
 import UploadProgress from './components/sidebar/UploadProgress';
 import DocumentList from './components/sidebar/DocumentList';
-import DocumentViewer from './components/sidebar/DocumentViewer';
 import { useDocumentStore } from './stores/documentStore';
 import ChunkViewModal from './components/modals/ChunkViewModal';
 import ConfirmModal from './components/modals/ConfirmModal';
@@ -37,15 +36,8 @@ export default function KnowledgeBaseApp() {
             <UploadProgress />
 
             <div className="mt-6 border-t border-gray-100 pt-4">
-              <div className="flex flex-col gap-4 lg:flex-row">
-                <div className="lg:w-5/12">
-                  <div className="rounded-lg border border-gray-200 bg-white p-3">
-                    <DocumentList />
-                  </div>
-                </div>
-                <div className="lg:flex-1">
-                  <DocumentViewer />
-                </div>
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <DocumentList />
               </div>
             </div>
           </div>

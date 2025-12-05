@@ -15,7 +15,7 @@ const createId = () => {
   return `ui-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 };
 
-const DEFAULT_TOAST_DURATION = 3200;
+const DEFAULT_TOAST_DURATION = 4000;
 
 const defaultConfirm: ConfirmModalState = {
   open: false,
@@ -140,3 +140,4 @@ export const useUIStore = create<UIState>((set, get) => ({
       };
     })
 }));
+
