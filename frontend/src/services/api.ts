@@ -1,12 +1,35 @@
-import { ApiResponse, Document, DocumentChunk, DocumentContent, Message, Conversation } from '../types';
+import { ApiResponse, Document, DocumentChunk, DocumentContent, Message, Conversation, RetrievalSettings, ModelSettings, EmbeddingInfo } from '../types';
 
 const API_BASE = '/api';
 
 export const api = {
   // Documents
-  async uploadDocument(file: File): Promise<ApiResponse<Document>> {
+  async uploadDocument(
+    file: File,
+    embeddingSettings?: {
+      embeddingModel?: string;
+      embeddingBaseUrl?: string;
+      embeddingApiKey?: string;
+      baseUrl?: string;
+      apiKey?: string;
+    }
+  ): Promise<ApiResponse<Document>> {
     const formData = new FormData();
     formData.append('file', file);
+    if (embeddingSettings) {
+      const {
+        embeddingModel,
+        embeddingBaseUrl,
+        embeddingApiKey,
+        baseUrl,
+        apiKey
+      } = embeddingSettings;
+      if (embeddingModel) formData.append('embeddingModel', embeddingModel);
+      if (embeddingBaseUrl) formData.append('embeddingBaseUrl', embeddingBaseUrl);
+      if (embeddingApiKey) formData.append('embeddingApiKey', embeddingApiKey);
+      if (baseUrl) formData.append('baseUrl', baseUrl);
+      if (apiKey) formData.append('apiKey', apiKey);
+    }
     const response = await fetch(`${API_BASE}/documents/upload`, {
       method: 'POST',
       body: formData
@@ -41,8 +64,29 @@ export const api = {
     return response.json();
   },
 
+  async getEmbeddingInfo(): Promise<ApiResponse<EmbeddingInfo>> {
+    const response = await fetch(`${API_BASE}/documents/embedding-info`);
+    return response.json();
+  },
+
   // Chat
-  sendMessage(message: string, conversationId: string, onEvent: (event: string, data: any) => void): Promise<void> {
+  sendMessage(
+    message: string,
+    conversationId: string,
+    onEvent: (event: string, data: any) => void,
+    retrievalSettings?: { topK: number; threshold: number },
+    modelSettings?: {
+      chatModel: string;
+      embeddingModel: string;
+      temperature: number;
+      maxTokens: number;
+      chatBaseUrl?: string;
+      chatApiKey?: string;
+      embeddingBaseUrl?: string;
+      embeddingApiKey?: string;
+    },
+    signal?: AbortSignal
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       fetch(`${API_BASE}/chat`, {
         method: 'POST',
@@ -50,7 +94,13 @@ export const api = {
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream'
         },
-        body: JSON.stringify({ message, conversationId })
+        body: JSON.stringify({
+          message,
+          conversationId,
+          retrievalSettings,
+          modelSettings
+        }),
+        signal
       }).then(response => {
         const reader = response.body?.getReader();
         if (!reader) {
@@ -119,6 +169,22 @@ export const api = {
 
   async deleteConversation(id: string): Promise<ApiResponse> {
     const response = await fetch(`${API_BASE}/chat/conversations/${id}`, { method: 'DELETE' });
+    return response.json();
+  },
+
+  async getSettings(): Promise<ApiResponse<{ retrieval: RetrievalSettings; model: ModelSettings }>> {
+    const response = await fetch(`${API_BASE}/settings`);
+    return response.json();
+  },
+
+  async saveSettings(payload: { retrieval: RetrievalSettings; model: ModelSettings }): Promise<ApiResponse> {
+    const response = await fetch(`${API_BASE}/settings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
     return response.json();
   }
 };

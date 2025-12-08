@@ -93,8 +93,10 @@ export interface ApiResponse<T = any> {
 export interface ChatState {
   messages: Message[];
   isLoading: boolean;
+  abortController: AbortController | null;
   loadHistory: () => Promise<void>;
   sendMessage: (content: string, onRagEvent?: (event: string, data: any) => void) => Promise<void>;
+  stopGeneration: () => void;
   clearHistory: () => Promise<boolean>;
 }
 
@@ -271,6 +273,10 @@ export interface UIState {
   confirm: ConfirmModalState;
   chunkView: ChunkViewState;
   uploadProgress: UploadProgressState;
+  settings: {
+    open: boolean;
+    activeTab: 'retrieval' | 'model';
+  };
   setLoading: (open: boolean, message?: string) => void;
   showToast: (toast: Omit<ToastMessage, 'id'> & { id?: string }) => string;
   hideToast: (id: string) => void;
@@ -286,4 +292,55 @@ export interface UIState {
   setUploadProgressStep: (step: number) => void;
   completeUploadProgress: (result: 'success' | 'error', documentName?: string | null) => void;
   closeUploadProgress: () => void;
+  openSettings: (tab?: 'retrieval' | 'model') => void;
+  closeSettings: () => void;
+  setActiveTab: (tab: 'retrieval' | 'model') => void;
+}
+
+// Settings types
+export interface RetrievalSettings {
+  topK: number;
+  threshold: number;
+}
+
+export interface ModelSettings {
+  chatModel: string;
+  embeddingModel: string;
+  temperature: number;
+  maxTokens: number;
+  chatBaseUrl?: string;
+  chatApiKey?: string;
+  embeddingBaseUrl?: string;
+  embeddingApiKey?: string;
+  /** @deprecated 请使用 chatBaseUrl/embeddingBaseUrl */
+  baseUrl?: string;
+  /** @deprecated 请使用 chatApiKey/embeddingApiKey */
+  apiKey?: string;
+}
+
+export interface SettingsState {
+  retrieval: RetrievalSettings;
+  model: ModelSettings;
+  updateRetrievalSettings: (settings: Partial<RetrievalSettings>) => void;
+  updateModelSettings: (settings: Partial<ModelSettings>) => void;
+  resetSettings: () => void;
+  fetchSettings: () => Promise<void>;
+  saveSettings: (payload?: { retrieval?: RetrievalSettings; model?: ModelSettings }) => Promise<void>;
+}
+
+export interface SettingsModalState {
+  open: boolean;
+  activeTab: 'retrieval' | 'model';
+  openSettings: (tab?: 'retrieval' | 'model') => void;
+  closeSettings: () => void;
+  setActiveTab: (tab: 'retrieval' | 'model') => void;
+}
+
+export interface EmbeddingInfo {
+  currentModel: string;
+  vectorModel: string;
+  dimension: number;
+  count: number;
+  lastUpdated: string;
+  mismatch: boolean;
 }

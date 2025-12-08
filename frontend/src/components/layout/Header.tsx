@@ -6,7 +6,7 @@ interface HeaderProps {
 
 export default function Header({ variant = 'chat' }: HeaderProps) {
   const openKnowledgeBase = () => {
-    window.open('/kb', variant === 'chat' ? '_blank' : '_self');
+    window.location.assign('/kb');
   };
 
   const goHome = () => {

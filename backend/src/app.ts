@@ -6,6 +6,7 @@ import { config } from './utils/config.js';
 import { getDb } from './db/sqlite.js';
 import documentsRouter from './routes/documents.js';
 import chatRouter from './routes/chat.js';
+import settingsRouter from './routes/settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -27,6 +28,7 @@ getDb();
 // Routes
 app.use('/api/documents', documentsRouter);
 app.use('/api/chat', chatRouter);
+app.use('/api/settings', settingsRouter);
 
 // Health check
 app.get('/api/health', (req: express.Request, res: express.Response) => {

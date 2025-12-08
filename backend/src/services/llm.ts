@@ -1,10 +1,12 @@
 import { config } from '../utils/config.js';
-import type { ChatMessage, SearchResult } from '../types/index.js';
+import type { ChatMessage, SearchResult, ModelSettings } from '../types/index.js';
 
 interface ChatCompletionRequest {
   model: string;
   messages: ChatMessage[];
   stream: boolean;
+  temperature?: number;
+  max_tokens?: number;
 }
 
 interface ChatCompletionResponse {
@@ -19,6 +21,8 @@ interface ResponsesRequest {
   model: string;
   input: Array<{ role: ChatMessage['role']; content: string }>;
   stream: boolean;
+  temperature?: number;
+  max_tokens?: number;
 }
 
 interface ResponsesStreamEvent {
@@ -47,17 +51,28 @@ function isResponsesOnlyError(error: unknown): boolean {
   return false;
 }
 
-async function* streamWithChatCompletions(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
-  const response = await fetch(`${config.openaiBaseUrl}/chat/completions`, {
+async function* streamWithChatCompletions(
+  messages: ChatMessage[],
+  modelSettings?: Partial<ModelSettings>
+): AsyncGenerator<string, void, unknown> {
+  const chatModel = modelSettings?.chatModel || config.chatModel;
+  const temperature = modelSettings?.temperature ?? 0.7;
+  const maxTokens = modelSettings?.maxTokens ?? 2048;
+  const baseUrl = modelSettings?.chatBaseUrl || modelSettings?.baseUrl || config.openaiBaseUrl;
+  const apiKey = modelSettings?.chatApiKey || modelSettings?.apiKey || config.openaiApiKey;
+  
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.openaiApiKey}`
+      'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: config.chatModel,
+      model: chatModel,
       messages,
-      stream: true
+      stream: true,
+      temperature,
+      max_tokens: maxTokens
     } as ChatCompletionRequest)
   });
 
@@ -102,20 +117,31 @@ async function* streamWithChatCompletions(messages: ChatMessage[]): AsyncGenerat
   }
 }
 
-async function* streamWithResponses(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
-  const response = await fetch(`${config.openaiBaseUrl}/responses`, {
+async function* streamWithResponses(
+  messages: ChatMessage[],
+  modelSettings?: Partial<ModelSettings>
+): AsyncGenerator<string, void, unknown> {
+  const chatModel = modelSettings?.chatModel || config.chatModel;
+  const temperature = modelSettings?.temperature ?? 0.7;
+  const maxTokens = modelSettings?.maxTokens ?? 2048;
+  const baseUrl = modelSettings?.chatBaseUrl || modelSettings?.baseUrl || config.openaiBaseUrl;
+  const apiKey = modelSettings?.chatApiKey || modelSettings?.apiKey || config.openaiApiKey;
+  
+  const response = await fetch(`${baseUrl}/responses`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.openaiApiKey}`
+      'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: config.chatModel,
+      model: chatModel,
       input: messages.map((message) => ({
         role: message.role,
         content: message.content
       })),
-      stream: true
+      stream: true,
+      temperature,
+      max_tokens: maxTokens
     } as ResponsesRequest)
   });
 
@@ -191,17 +217,22 @@ async function* streamWithResponses(messages: ChatMessage[]): AsyncGenerator<str
   }
 }
 
-export async function* streamChat(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
-  if (shouldUseResponsesEndpoint(config.chatModel)) {
-    yield* streamWithResponses(messages);
+export async function* streamChat(
+  messages: ChatMessage[],
+  modelSettings?: Partial<ModelSettings>
+): AsyncGenerator<string, void, unknown> {
+  const chatModel = modelSettings?.chatModel || config.chatModel;
+  
+  if (shouldUseResponsesEndpoint(chatModel)) {
+    yield* streamWithResponses(messages, modelSettings);
     return;
   }
 
   try {
-    yield* streamWithChatCompletions(messages);
+    yield* streamWithChatCompletions(messages, modelSettings);
   } catch (error) {
     if (isResponsesOnlyError(error)) {
-      yield* streamWithResponses(messages);
+      yield* streamWithResponses(messages, modelSettings);
     } else {
       throw error;
     }

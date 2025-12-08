@@ -116,6 +116,12 @@ function initTables(): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_message_references_message ON message_references(message_id);
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 }
 
@@ -335,5 +341,20 @@ export const dbHelpers = {
   deleteMessagesByConversationId: (conversationId: string): Database.RunResult => {
     const db = getDb();
     return db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
+  },
+
+  getSetting: (key: string): string | undefined => {
+    const db = getDb();
+    const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as { value: string } | undefined;
+    return row?.value;
+  },
+
+  setSetting: (key: string, value: string): Database.RunResult => {
+    const db = getDb();
+    return db.prepare(`
+      INSERT INTO app_settings (key, value, updated_at)
+      VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    `).run(key, value);
   }
 };

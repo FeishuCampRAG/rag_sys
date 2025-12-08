@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { DocumentState } from '../types';
 import { api } from '../services/api';
 import { useUIStore } from './uiStore';
+import { useSettingsStore } from './settingsStore';
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
@@ -22,11 +23,18 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   uploadDocument: async (file: File) => {
     const ui = useUIStore.getState();
+    const { model } = useSettingsStore.getState();
     ui.openUploadProgress(file.name);
     ui.setUploadProgressStep(0);
     set({ uploading: true });
     try {
-      const result = await api.uploadDocument(file);
+      const result = await api.uploadDocument(file, {
+        embeddingModel: model.embeddingModel,
+        embeddingBaseUrl: model.embeddingBaseUrl || model.baseUrl,
+        embeddingApiKey: model.embeddingApiKey || model.apiKey,
+        baseUrl: model.baseUrl,
+        apiKey: model.apiKey
+      });
       if (result.success && result.data) {
         ui.setUploadProgressStep(1);
         await get().fetchDocuments();

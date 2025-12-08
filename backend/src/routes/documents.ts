@@ -7,8 +7,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { dbHelpers } from '../db/sqlite.js';
 import { parseDocument } from '../services/pdfParser.js';
 import { chunkText } from '../services/chunker.js';
-import { getEmbeddings } from '../services/embedding.js';
-import { addVectors, deleteVectorsByDocumentId } from '../services/vectorStore.js';
+import { getEmbeddings, type EmbeddingOptions } from '../services/embedding.js';
+import { addVectors, deleteVectorsByDocumentId, getAllVectors } from '../services/vectorStore.js';
+import { loadSettings } from '../services/appSettings.js';
 import type { ApiResponse, UploadResponse, MulterFile } from '../types/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -80,8 +81,17 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       }
     } as ApiResponse<UploadResponse>);
 
+    const appSettings = loadSettings();
+    const embeddingOptions: Partial<EmbeddingOptions> = {
+      embeddingModel: req.body?.embeddingModel || appSettings.model.embeddingModel,
+      embeddingBaseUrl: req.body?.embeddingBaseUrl || req.body?.baseUrl || appSettings.model.embeddingBaseUrl || appSettings.model.baseUrl,
+      embeddingApiKey: req.body?.embeddingApiKey || req.body?.apiKey || appSettings.model.embeddingApiKey || appSettings.model.apiKey,
+      baseUrl: req.body?.baseUrl || appSettings.model.baseUrl,
+      apiKey: req.body?.apiKey || appSettings.model.apiKey
+    };
+
     // Process document asynchronously
-    processDocument(docId, req.file.path, mimeType).catch(err => {
+    processDocument(docId, req.file.path, mimeType, embeddingOptions).catch(err => {
       console.error('Document processing error:', err);
       dbHelpers.updateDocumentStatus(docId, 'error', err.message);
     });
@@ -95,7 +105,12 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
   }
 });
 
-async function processDocument(docId: string, filePath: string, mimeType: string): Promise<void> {
+async function processDocument(
+  docId: string,
+  filePath: string,
+  mimeType: string,
+  embeddingOptions?: Partial<EmbeddingOptions>
+): Promise<void> {
   // Parse document
   const text = await parseDocument(filePath, mimeType);
 
@@ -124,7 +139,7 @@ async function processDocument(docId: string, filePath: string, mimeType: string
 
   // Get embeddings
   const texts = chunks.map(c => c.content);
-  const embeddings = await getEmbeddings(texts);
+  const embeddings = await getEmbeddings(texts, embeddingOptions);
 
   // Store vectors
   const vectors = chunks.map((chunk, i) => {
@@ -142,7 +157,7 @@ async function processDocument(docId: string, filePath: string, mimeType: string
       embedding
     };
   });
-  addVectors(vectors);
+  addVectors(vectors, embeddingOptions?.embeddingModel);
 
   // Update document status
   dbHelpers.updateDocumentChunkCount(docId, chunks.length);
@@ -162,6 +177,31 @@ function getMimeType(filename: string): string {
 router.get('/', (req: Request, res: Response) => {
   const documents = dbHelpers.getAllDocuments();
   res.json({ success: true, data: documents } as ApiResponse);
+});
+
+// Get embedding info
+router.get('/embedding-info', (_req: Request, res: Response) => {
+  try {
+    const settings = loadSettings();
+    const vectors = getAllVectors();
+    const currentModel = settings.model.embeddingModel;
+    const vectorModel = vectors.metadata.model;
+    const mismatch = vectors.metadata.count > 0 && currentModel !== vectorModel;
+
+    res.json({
+      success: true,
+      data: {
+        currentModel,
+        vectorModel,
+        dimension: vectors.metadata.dimension,
+        count: vectors.metadata.count,
+        lastUpdated: vectors.metadata.last_updated,
+        mismatch
+      }
+    } as ApiResponse);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' } as ApiResponse);
+  }
 });
 
 // Get document by id
