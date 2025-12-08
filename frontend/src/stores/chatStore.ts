@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { ChatReference, ChatState, Message } from '../types';
 import { useConversationStore } from './conversationStore';
+import { useSettingsStore } from './settingsStore';
 import { api } from '../services/api';
 import { parseError, logError, createUserMessage } from '../utils/errorHandler';
 
@@ -58,6 +59,7 @@ const upsertAssistantMessage = (
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isLoading: false,
+  abortController: null as AbortController | null,
 
   loadHistory: async () => {
     const convStore = useConversationStore.getState();
@@ -72,12 +74,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendMessage: async (content: string, onRagEvent?: (event: string, data: any) => void) => {
     const convStore = useConversationStore.getState();
+    const settingsStore = useSettingsStore.getState();
     const conversationId = await convStore.ensureActiveConversation();
     if (!conversationId) {
       return;
     }
     const syncConversation = (messages: Message[]) => convStore.updateMessages(conversationId, messages);
-    set({ isLoading: true });
+    const abortController = new AbortController();
+    set({ isLoading: true, abortController });
 
     const conversation = convStore.conversations.find(c => c.id === conversationId);
     if (!conversation || !conversation.summary || conversation.summary === '新的对话') {
@@ -99,7 +103,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     let references: ChatReference[] = [];
 
     try {
-      await api.sendMessage(content, conversationId, (event, data) => {
+      await api.sendMessage(
+        content,
+        conversationId,
+        (event, data) => {
         if (event === 'step' && data?.step === 'retrieval' && data.status === 'done') {
           references = (data.chunks || []).map((chunk: any, index: number) => ({
             id: chunk.id || `${assistantId}-ref-${index + 1}`,
@@ -140,8 +147,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (event === 'step' || event === 'token' || event === 'done' || event === 'error') {
           onRagEvent?.(event, data);
         }
-      });
+      },
+      settingsStore.retrieval,
+      settingsStore.model,
+      abortController.signal
+      );
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        set({ isLoading: false, abortController: null });
+        return;
+      }
       const errorInfo = parseError(error);
       logError('sendMessage', errorInfo);
       const userFriendly = createUserMessage(errorInfo);
@@ -164,8 +179,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return { messages };
       });
     } finally {
-      set({ isLoading: false });
+      set({ isLoading: false, abortController: null });
     }
+  },
+
+  stopGeneration: () => {
+    const controller = get().abortController;
+    if (controller) {
+      controller.abort();
+    }
+    set(state => ({
+      messages: state.messages.map(msg => msg.streaming ? { ...msg, streaming: false } : msg),
+      isLoading: false,
+      abortController: null
+    }));
   },
 
   clearHistory: async () => {

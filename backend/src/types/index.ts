@@ -154,3 +154,30 @@ export interface MulterFile {
   filename: string;
   path: string;
 }
+
+export interface RetrievalSettings {
+  topK: number;
+  threshold: number;
+}
+
+export interface ModelSettings {
+  chatModel: string;
+  embeddingModel: string;
+  temperature: number;
+  maxTokens: number;
+  chatBaseUrl?: string;
+  chatApiKey?: string;
+  embeddingBaseUrl?: string;
+  embeddingApiKey?: string;
+  /** @deprecated use chatBaseUrl/embeddingBaseUrl */
+  baseUrl?: string;
+  /** @deprecated use chatApiKey/embeddingApiKey */
+  apiKey?: string;
+}
+
+export interface ChatRequest {
+  message: string;
+  conversationId?: string;
+  retrievalSettings?: RetrievalSettings;
+  modelSettings?: ModelSettings;
+}

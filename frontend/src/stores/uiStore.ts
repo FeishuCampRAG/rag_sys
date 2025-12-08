@@ -3,9 +3,10 @@ import type {
   UIState,
   ToastMessage,
   ToastOptions,
+  ToastType,
   ConfirmModalState,
   ConfirmDialogOptions,
-  DocumentChunk
+  DocumentChunk,
 } from '../types';
 
 const createId = () => {
@@ -28,7 +29,7 @@ const defaultConfirm: ConfirmModalState = {
 
 const buildToastPayload = (toast: Omit<ToastMessage, 'id'> & { id?: string }): ToastMessage => ({
   id: toast.id || createId(),
-  type: toast.type || 'info',
+  type: toast.type || ('info' as ToastType),
   title: toast.title,
   message: toast.message,
   duration: toast.duration ?? DEFAULT_TOAST_DURATION
@@ -59,6 +60,10 @@ export const useUIStore = create<UIState>((set, get) => ({
     documentName: null,
     currentStep: 0
   },
+  settings: {
+    open: false,
+    activeTab: 'retrieval'
+  },
 
   setLoading: (open: boolean, message?: string) =>
     set({ loading: { open, message } }),
@@ -76,7 +81,14 @@ export const useUIStore = create<UIState>((set, get) => ({
       toastQueue: state.toastQueue.filter(toast => toast.id !== id)
     })),
 
-  pushToast: (toast: ToastOptions) => get().showToast(toast),
+  pushToast: (toast: ToastOptions) => {
+    // Ensure type is not undefined when calling showToast
+    const toastWithType = {
+      ...toast,
+      type: toast.type || ('info' as ToastType)
+    };
+    return get().showToast(toastWithType);
+  },
   removeToast: (id: string) => get().hideToast(id),
 
   openConfirm: (options: Omit<ConfirmModalState, 'open'>) =>
@@ -186,6 +198,30 @@ export const useUIStore = create<UIState>((set, get) => ({
         documentName: null,
         currentStep: 0
       }
-    })
+    }),
+
+  openSettings: (tab = 'retrieval') =>
+    set({
+      settings: {
+        open: true,
+        activeTab: tab
+      }
+    }),
+
+  closeSettings: () =>
+    set(state => ({
+      settings: {
+        ...state.settings,
+        open: false
+      }
+    })),
+
+  setActiveTab: (tab: 'retrieval' | 'model') =>
+    set(state => ({
+      settings: {
+        ...state.settings,
+        activeTab: tab
+      }
+    }))
 }));
 

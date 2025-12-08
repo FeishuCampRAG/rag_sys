@@ -27,9 +27,16 @@ function saveVectors(data: VectorStore): void {
   fs.writeFileSync(vectorsPath, JSON.stringify(data, null, 2));
 }
 
-export function addVectors(vectors: VectorData[]): void {
+export function addVectors(vectors: VectorData[], model?: string): void {
   const data = loadVectors();
   data.vectors.push(...vectors);
+  if (vectors.length > 0) {
+    data.metadata.model = model || data.metadata.model;
+    const firstEmbedding = vectors[0]?.embedding;
+    if (Array.isArray(firstEmbedding)) {
+      data.metadata.dimension = firstEmbedding.length;
+    }
+  }
   saveVectors(data);
 }
 
@@ -47,6 +54,11 @@ export function searchVectors(
   const data = loadVectors();
 
   if (data.vectors.length === 0) {
+    return [];
+  }
+
+  if (data.metadata.dimension && data.metadata.dimension !== queryEmbedding.length) {
+    // Embedding model changed; stored vectors are incompatible with current query embedding.
     return [];
   }
 

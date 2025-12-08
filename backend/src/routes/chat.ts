@@ -4,6 +4,8 @@ import { dbHelpers } from '../db/sqlite.js';
 import { getEmbedding } from '../services/embedding.js';
 import { searchVectors } from '../services/vectorStore.js';
 import { streamChat, buildPrompt } from '../services/llm.js';
+import { config } from '../utils/config.js';
+import { loadSettings } from '../services/appSettings.js';
 import type {
   ApiResponse,
   ChatStepEvent,
@@ -11,7 +13,10 @@ import type {
   ChatDoneEvent,
   ChatErrorEvent,
   Conversation,
-  ChatReference
+  ChatReference,
+  ChatRequest,
+  RetrievalSettings,
+  ModelSettings
 } from '../types/index.js';
 
 const router = Router();
@@ -43,7 +48,7 @@ const ensureConversation = (conversationId: string, firstMessage?: string): Conv
 
 // Send message (SSE)
 router.post('/', async (req: Request, res: Response) => {
-  const { message, conversationId } = req.body;
+  const { message, conversationId, retrievalSettings, modelSettings } = req.body as ChatRequest;
 
   if (!message) {
     return res.status(400).json({ success: false, error: 'Message is required' } as ApiResponse);
@@ -60,8 +65,14 @@ router.post('/', async (req: Request, res: Response) => {
   };
 
   try {
-    const conversation = ensureConversation(conversationId, message);
+    const appSettings = loadSettings();
+    const conversation = ensureConversation(conversationId || '', message);
     let retrievalReferences: ChatReference[] = [];
+    const embeddingModel = modelSettings?.embeddingModel || appSettings.model.embeddingModel || config.embeddingModel;
+    const embeddingBaseUrl = modelSettings?.embeddingBaseUrl || modelSettings?.baseUrl || appSettings.model.embeddingBaseUrl || appSettings.model.baseUrl || config.openaiBaseUrl;
+    const embeddingApiKey = modelSettings?.embeddingApiKey || modelSettings?.apiKey || appSettings.model.embeddingApiKey || appSettings.model.apiKey || config.openaiApiKey;
+    const chatBaseUrl = modelSettings?.chatBaseUrl || modelSettings?.baseUrl || appSettings.model.chatBaseUrl || appSettings.model.baseUrl || config.openaiBaseUrl;
+    const chatApiKey = modelSettings?.chatApiKey || modelSettings?.apiKey || appSettings.model.chatApiKey || appSettings.model.apiKey || config.openaiApiKey;
 
     // Save user message
     dbHelpers.insertMessage({
@@ -81,7 +92,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Step 1: Embedding
     sendEvent('step', { step: 'embedding', status: 'processing' } as ChatStepEvent);
-    const queryEmbedding = await getEmbedding(message);
+    const queryEmbedding = await getEmbedding(message, { embeddingModel, embeddingBaseUrl, embeddingApiKey, baseUrl: embeddingBaseUrl, apiKey: embeddingApiKey });
     sendEvent('step', { 
       step: 'embedding', 
       status: 'done', 
@@ -90,7 +101,9 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Step 2: Retrieval
     sendEvent('step', { step: 'retrieval', status: 'processing' } as ChatStepEvent);
-    const chunks = searchVectors(queryEmbedding, 3, 0.5);
+    const topK = retrievalSettings?.topK || appSettings.retrieval.topK || 3;
+    const threshold = retrievalSettings?.threshold || appSettings.retrieval.threshold || 0.5;
+    const chunks = searchVectors(queryEmbedding, topK, threshold);
     retrievalReferences = chunks.map((chunk, index) => ({
       id: chunk.id || randomUUID(),
       chunk_id: chunk.id,
@@ -122,6 +135,11 @@ router.post('/', async (req: Request, res: Response) => {
       { role: 'system', content: prompt }
     ];
 
+    // Use custom model settings if provided
+    const chatModel = modelSettings?.chatModel || config.chatModel;
+    const temperature = modelSettings?.temperature || 0.7;
+    const maxTokens = modelSettings?.maxTokens || 2048;
+
     // Add conversation history
     const history = dbHelpers.getRecentMessagesByConversationId(conversation.id, 10).reverse();
     for (const msg of history) {
@@ -131,7 +149,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     let fullResponse = '';
-    for await (const token of streamChat(messages)) {
+    for await (const token of streamChat(messages, { chatModel, temperature, maxTokens, chatBaseUrl, chatApiKey, baseUrl: chatBaseUrl, apiKey: chatApiKey })) {
       fullResponse += token;
       sendEvent('token', { token } as ChatTokenEvent);
     }

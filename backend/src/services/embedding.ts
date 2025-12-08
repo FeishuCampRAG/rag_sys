@@ -1,4 +1,5 @@
 import { config } from '../utils/config.js';
+import type { ModelSettings } from '../types/index.js';
 
 interface EmbeddingResponse {
   data: Array<{
@@ -11,15 +12,24 @@ interface EmbeddingRequest {
   input: string | string[];
 }
 
-export async function getEmbedding(text: string): Promise<number[]> {
-  const response = await fetch(`${config.openaiBaseUrl}/embeddings`, {
+export type EmbeddingOptions = Pick<ModelSettings, 'embeddingModel' | 'embeddingBaseUrl' | 'embeddingApiKey' | 'baseUrl' | 'apiKey'>;
+
+function resolveEmbeddingModel(options?: Partial<EmbeddingOptions>): string {
+  return options?.embeddingModel || config.embeddingModel;
+}
+
+export async function getEmbedding(text: string, options?: Partial<EmbeddingOptions>): Promise<number[]> {
+  const model = resolveEmbeddingModel(options);
+  const baseUrl = options?.embeddingBaseUrl || options?.baseUrl || config.openaiBaseUrl;
+  const apiKey = options?.embeddingApiKey || options?.apiKey || config.openaiApiKey;
+  const response = await fetch(`${baseUrl}/embeddings`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.openaiApiKey}`
+      'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: config.embeddingModel,
+      model,
       input: text
     } as EmbeddingRequest)
   });
@@ -33,18 +43,25 @@ export async function getEmbedding(text: string): Promise<number[]> {
   if (!data.data[0]) {
     throw new Error('No embedding data returned from API');
   }
-  return data.data[0].embedding;
+  const embedding = data.data[0].embedding;
+  if (!embedding || !Array.isArray(embedding)) {
+    throw new Error('Invalid embedding data returned from API');
+  }
+  return embedding;
 }
 
-export async function getEmbeddings(texts: string[]): Promise<number[][]> {
-  const response = await fetch(`${config.openaiBaseUrl}/embeddings`, {
+export async function getEmbeddings(texts: string[], options?: Partial<EmbeddingOptions>): Promise<number[][]> {
+  const model = resolveEmbeddingModel(options);
+  const baseUrl = options?.embeddingBaseUrl || options?.baseUrl || config.openaiBaseUrl;
+  const apiKey = options?.embeddingApiKey || options?.apiKey || config.openaiApiKey;
+  const response = await fetch(`${baseUrl}/embeddings`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.openaiApiKey}`
+      'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: config.embeddingModel,
+      model,
       input: texts
     } as EmbeddingRequest)
   });
