@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import MessageItem from "./MessageItem";
 
@@ -6,13 +6,42 @@ export default function MessageList() {
   const messages = useChatStore(state => state.messages);
   const containerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
+  // Check if user is at the bottom of the chat
+  const checkIfAtBottom = () => {
+    if (!containerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    // Consider "at bottom" if within 50px of the bottom
+    return Math.abs(scrollHeight - scrollTop - clientHeight) < 50;
+  };
+
+  // Handle scroll events to detect user scrolling
+  const handleScroll = () => {
+    if (!containerRef.current) return;
+    const atBottom = checkIfAtBottom();
+    setIsAtBottom(atBottom);
+    
+    // If user scrolls up, mark as user scrolling
+    if (!atBottom) {
+      setIsUserScrolling(true);
+    } else {
+      setIsUserScrolling(false);
+    }
+  };
+
+  // Auto-scroll only when at the bottom
   useEffect(() => {
     if (!containerRef.current) return;
-    requestAnimationFrame(() => {
-      endRef.current?.scrollIntoView({ behavior: "smooth" });
-    });
-  }, [messages]);
+    
+    // Only auto-scroll if user is at the bottom or not manually scrolling
+    if (isAtBottom && !isUserScrolling) {
+      requestAnimationFrame(() => {
+        endRef.current?.scrollIntoView({ behavior: "smooth" });
+      });
+    }
+  }, [messages, isAtBottom, isUserScrolling]);
 
   if (messages.length === 0) {
     return (
@@ -33,7 +62,11 @@ export default function MessageList() {
   }
 
   return (
-    <div ref={containerRef} className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto bg-white px-4 py-4">
+    <div
+      ref={containerRef}
+      className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto bg-white px-4 py-4"
+      onScroll={handleScroll}
+    >
       {messages.map(message => (
         <MessageItem key={message.id || message.created_at} message={message} />
       ))}
