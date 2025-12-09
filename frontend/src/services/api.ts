@@ -1,7 +1,5 @@
 import { ApiResponse, Document, DocumentChunk, DocumentContent, Message, Conversation, RetrievalSettings, ModelSettings, EmbeddingInfo } from '../types';
-
 const API_BASE = '/api';
-
 export const api = {
   // Documents
   async uploadDocument(
@@ -36,39 +34,32 @@ export const api = {
     });
     return response.json();
   },
-
   async getDocuments(): Promise<ApiResponse<Document[]>> {
     const response = await fetch(`${API_BASE}/documents`);
     return response.json();
   },
-
   async getDocument(id: string): Promise<ApiResponse<Document>> {
     const response = await fetch(`${API_BASE}/documents/${id}`);
     return response.json();
   },
-
   async getDocumentChunks(id: string): Promise<ApiResponse<DocumentChunk[]>> {
     const response = await fetch(`${API_BASE}/documents/${id}/chunks`);
     return response.json();
   },
-
   async getDocumentContent(id: string): Promise<ApiResponse<DocumentContent>> {
     const response = await fetch(`${API_BASE}/documents/${id}/content`);
     return response.json();
   },
-
   async deleteDocument(id: string): Promise<ApiResponse> {
     const response = await fetch(`${API_BASE}/documents/${id}`, {
       method: 'DELETE'
     });
     return response.json();
   },
-
   async getEmbeddingInfo(): Promise<ApiResponse<EmbeddingInfo>> {
     const response = await fetch(`${API_BASE}/documents/embedding-info`);
     return response.json();
   },
-
   // Chat
   sendMessage(
     message: string,
@@ -144,39 +135,32 @@ export const api = {
       }).catch(reject);
     });
   },
-
   async getChatHistory(conversationId: string): Promise<ApiResponse<Message[]>> {
     const response = await fetch(`${API_BASE}/chat/history?conversationId=${encodeURIComponent(conversationId)}`);
     return response.json();
   },
-
   async clearChatHistory(conversationId: string): Promise<ApiResponse> {
     const response = await fetch(`${API_BASE}/chat/history?conversationId=${encodeURIComponent(conversationId)}`, {
       method: 'DELETE'
     });
     return response.json();
   },
-
   async getConversations(): Promise<ApiResponse<Conversation[]>> {
     const response = await fetch(`${API_BASE}/chat/conversations`);
     return response.json();
   },
-
   async createConversation(): Promise<ApiResponse<Conversation>> {
     const response = await fetch(`${API_BASE}/chat/conversations`, { method: 'POST' });
     return response.json();
   },
-
   async deleteConversation(id: string): Promise<ApiResponse> {
     const response = await fetch(`${API_BASE}/chat/conversations/${id}`, { method: 'DELETE' });
     return response.json();
   },
-
   async getSettings(): Promise<ApiResponse<{ retrieval: RetrievalSettings; model: ModelSettings }>> {
     const response = await fetch(`${API_BASE}/settings`);
     return response.json();
   },
-
   async saveSettings(payload: { retrieval: RetrievalSettings; model: ModelSettings }): Promise<ApiResponse> {
     const response = await fetch(`${API_BASE}/settings`, {
       method: 'POST',
