@@ -219,7 +219,6 @@ export default function ConversationExport({ conversationId, className = '' }: C
             <div className="space-y-2 mb-4">
               {[
                 { value: 'markdown', label: 'Markdown', description: '适合文档编辑和分享' },
-                { value: 'pdf', label: 'PDF', description: '适合打印和正式文档' },
                 { value: 'json', label: 'JSON', description: '适合数据分析和备份' },
                 { value: 'txt', label: '纯文本', description: '适合纯文本查看' }
               ].map(format => (
