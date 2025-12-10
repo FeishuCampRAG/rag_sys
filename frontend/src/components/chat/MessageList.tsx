@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState, useCallback } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import MessageItem from "./MessageItem";
 
@@ -8,40 +8,81 @@ export default function MessageList() {
   const endRef = useRef<HTMLDivElement>(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const lastScrollHeightRef = useRef<number>(0);
+  const lastScrollTopRef = useRef<number>(0);
+  const scrollTimeoutRef = useRef<number | null>(null);
 
   // Check if user is at the bottom of the chat
-  const checkIfAtBottom = () => {
+  const checkIfAtBottom = useCallback(() => {
     if (!containerRef.current) return true;
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    // Consider "at bottom" if within 50px of the bottom
-    return Math.abs(scrollHeight - scrollTop - clientHeight) < 50;
-  };
+    // Consider "at bottom" if within 100px of the bottom (increased threshold)
+    return Math.abs(scrollHeight - scrollTop - clientHeight) < 100;
+  }, []);
 
   // Handle scroll events to detect user scrolling
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
-    const atBottom = checkIfAtBottom();
-    setIsAtBottom(atBottom);
     
-    // If user scrolls up, mark as user scrolling
-    if (!atBottom) {
-      setIsUserScrolling(true);
-    } else {
-      setIsUserScrolling(false);
+    const currentScrollTop = containerRef.current.scrollTop;
+    const currentScrollHeight = containerRef.current.scrollHeight;
+    const atBottom = checkIfAtBottom();
+    
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
     }
-  };
+    
+    // Detect if this is a content height change vs user scroll
+    const isContentHeightChange = currentScrollHeight > lastScrollHeightRef.current;
+    const isUserScrollingUp = currentScrollTop < lastScrollTopRef.current - 5; // Threshold for actual user scroll
+    
+    // Update refs for next comparison
+    lastScrollHeightRef.current = currentScrollHeight;
+    lastScrollTopRef.current = currentScrollTop;
+    
+    // Only mark as user scrolling if it's not a content height change and user is actually scrolling up
+    if (!isContentHeightChange && isUserScrollingUp && !atBottom) {
+      setIsUserScrolling(true);
+      setIsAtBottom(false);
+    } else if (atBottom) {
+      setIsAtBottom(true);
+      // Reset user scrolling state when at bottom
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsUserScrolling(false);
+      }, 150); // Small delay to ensure smooth transition
+    }
+  }, [checkIfAtBottom]);
 
-  // Auto-scroll only when at the bottom
+  // Auto-scroll logic with improved handling for content changes
   useEffect(() => {
     if (!containerRef.current) return;
     
-    // Only auto-scroll if user is at the bottom or not manually scrolling
-    if (isAtBottom && !isUserScrolling) {
+    // Always scroll to bottom for new messages if user was at bottom or if it's a streaming message
+    const shouldAutoScroll = isAtBottom || messages.some(msg => msg.streaming);
+    
+    if (shouldAutoScroll && !isUserScrolling) {
+      // Use requestAnimationFrame to ensure DOM updates are complete
       requestAnimationFrame(() => {
-        endRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (containerRef.current && endRef.current) {
+          // Check if we're still at bottom after potential content changes
+          const stillAtBottom = checkIfAtBottom();
+          if (stillAtBottom || messages.some(msg => msg.streaming)) {
+            endRef.current.scrollIntoView({ behavior: "smooth" });
+          }
+        }
       });
     }
-  }, [messages, isAtBottom, isUserScrolling]);
+  }, [messages, isAtBottom, isUserScrolling, checkIfAtBottom]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (messages.length === 0) {
     return (
@@ -74,4 +115,3 @@ export default function MessageList() {
     </div>
   );
 }
-
